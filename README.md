@@ -54,8 +54,6 @@ The `configuration.ini` file should be placed at `C:\Program Files\OCRR\settings
 upload = /path/to/document/upload
 workspace = /path/to/ocrr/workspace
 
-### Usage
+**Usage
 python ocrr_engine.py
 
-### License
-All the License are available under licenses folder
