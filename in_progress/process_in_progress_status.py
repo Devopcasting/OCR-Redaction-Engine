@@ -85,6 +85,8 @@ class ProcessInProgressStatusDocuments:
     
     def _insert_in_progress_status_document_to_queue(self, document: dict):
         # Insert a valid document to the 'IN_PROGRESS' queue and update its status in the database
+        room_name = list(filter(None, document['uploadDir'].split("/")))[0]
+        room_id = list(filter(None, document['uploadDir'].split("/")))[1]
         try:
             document_info = {
                 "taskId": document['taskId'],
@@ -95,9 +97,9 @@ class ProcessInProgressStatusDocuments:
                 "uploadDir": document['uploadDir'],
                 "renamedDoc": self._rename_document(document['uploadDir']),
                 "document_name": list(filter(None, document['uploadDir'].split("/")))[-1],
-                "roomName": list(filter(None, document['uploadDir'].split("/")))[0],
-                "roomId": list(filter(None, document['uploadDir'].split("/")))[1],
-                "redactedPath": os.path.join(f"{self.doc_upload_path}\{list(filter(None, document['uploadDir'].split("/")))[0]}\{list(filter(None, document['uploadDir'].split("/")))[1]}", "Redacted"),
+                "roomName": room_name,
+                "roomId": room_id,
+                "redactedPath": os.path.join(f"{self.doc_upload_path}\\{room_name}\\{room_id}", "Redacted"),
                 "ocrrworkspace_doc_path": os.path.join(self.ocrr_workspace_path, self._rename_document(document['uploadDir']))
             }
             self.collection_ocrr.insert_one(document_info)
