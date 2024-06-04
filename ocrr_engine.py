@@ -17,6 +17,9 @@ class OCRREngine:
         self.document_upload_path = config['Paths']['upload']
         self.ocrr_workspace_path = config['Paths']['workspace']
 
+        # Retrieve the Redaction Level in integer
+        self.redaction_level = int(config['RedactionLevel']['level'])
+
         # Configure logger
         logger_config = OCRRLogger()
         self.logger = logger_config.configure_logger()
@@ -65,7 +68,7 @@ class OCRREngine:
         filter_in_progress_status_doc.query_in_progress_status_documents()
     
     def process_queue_documents(self):
-        process_queue_doc = ProcessQueueDocuments(self.in_progress_queue, self.document_upload_path, self.ocrr_workspace_path, self.logger)
+        process_queue_doc = ProcessQueueDocuments(self.in_progress_queue, self.document_upload_path, self.ocrr_workspace_path, self.logger, self.redaction_level)
         process_queue_doc.process_queue_document()
 
 def main():
