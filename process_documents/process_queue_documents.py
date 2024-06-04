@@ -6,11 +6,12 @@ import numpy as np
 from ocrr_document.process_ocrr import ProcessDocumentOCRR
 
 class ProcessQueueDocuments:
-    def __init__(self, doc_in_progress_status_queue: object, doc_upload_path: str, ocrr_workspace_path: str, logger: object) -> None:
+    def __init__(self, doc_in_progress_status_queue: object, doc_upload_path: str, ocrr_workspace_path: str, logger: object, redaction_level: int) -> None:
         self.doc_in_progress_status_queue = doc_in_progress_status_queue
         self.doc_upload_path = doc_upload_path
         self.ocrr_workspace_path = ocrr_workspace_path
         self.logger = logger
+        self.redaction_level = redaction_level
     
     def process_queue_document(self):
         while True:
@@ -20,7 +21,7 @@ class ProcessQueueDocuments:
                     # Pre-Process the document
                     self._pre_process_queue_document(document_info)
                     # Process the document using OCRR
-                    ProcessDocumentOCRR(document_info, self.logger).process_document()
+                    ProcessDocumentOCRR(document_info, self.logger, self.redaction_level).start_ocrr()
                 sleep(5)
             except Exception as e:
                 self.logger.error(f"| Failed to process document: {e}")
@@ -32,7 +33,13 @@ class ProcessQueueDocuments:
             self.logger.info(f"| Copied document to OCRR workspace: {document_info['renamedDoc']}")
 
             # Identify document as Grayscale and Pre-Process Colored document
-            if not self._check_document_is_grayscale(os.path.join(self.ocrr_workspace_path, document_info['renamedDoc'])):
+            if self._check_document_is_grayscale(os.path.join(self.ocrr_workspace_path, document_info['renamedDoc'])):
+                # Convert the document to grayscale
+                self.logger.info(f"| Converting document to grayscale: {document_info['renamedDoc']}")
+                self._convert_document_to_grayscale(os.path.join(self.ocrr_workspace_path, document_info['renamedDoc']))
+            else:
+                # Pre-Process the colored document
+                self.logger.info(f"| Pre-Processing colored document: {document_info['renamedDoc']}")
                 self._pre_process_colored_document(os.path.join(self.ocrr_workspace_path, document_info['renamedDoc']))
         except Exception as e:
             self.logger.error(f"| Failed to Pre-Process document: {e}")
@@ -81,4 +88,14 @@ class ProcessQueueDocuments:
             return True
         except Exception as e:
             self.logger.error(f"| Failed to pre-process colored document: {e}")
+            return False
+    
+    def _convert_document_to_grayscale(self, ocrr_workspace_doc_path: str) -> bool:
+        try:
+            document = cv2.imread(ocrr_workspace_doc_path)
+            gray_document = cv2.cvtColor(document, cv2.COLOR_BGR2GRAY)
+            cv2.imwrite(ocrr_workspace_doc_path, gray_document)
+            return True
+        except Exception as e:
+            self.logger.error(f"| Failed to convert document to gray: {e}")
             return False
