@@ -1,4 +1,3 @@
-import pytesseract
 from helper.text_coordinates import ImageTextCoordinates
 
 class CDSLDocumentInfo:
@@ -7,12 +6,9 @@ class CDSLDocumentInfo:
         self.logger = logger
         self.redaction_level = redaction_level
         self.coordinates = ImageTextCoordinates(self.ocrr_workspace_doc_path, lang="default").generate_text_coordinates()
-        
+
     def _extract_pancard_number(self) -> dict:
-        result = {
-            "CDSL Pancard Number": "",
-            "Coordinates": []
-        }
+        result = {"CDSL Pancard Number": "","Coordinates": []}
         try:
             # Extract Pancard Number and its Coordinates
             pancard_number = ""
@@ -49,10 +45,7 @@ class CDSLDocumentInfo:
             return result
     
     def _extract_client_name(self):
-        result = {
-            "CDSL Client Name": "",
-            "Coordinates": []
-        }
+        result = {"CDSL Client Name": "","Coordinates": []}
         try:
             client_name = ""
             client_name_coordinates = []
@@ -67,7 +60,7 @@ class CDSLDocumentInfo:
                 if len(text) == 10 and text.isupper() and is_digit_alpha_numeric(text):
                     pancard_number_index = index
                     break
-
+                
             # Check if Pancard Number index is not found
             if pancard_number_index is None:
                 self.logger.error("| Pancard Number index not found in CDSL document")
@@ -78,10 +71,20 @@ class CDSLDocumentInfo:
                 # Break the loop if text is available in the break loop list
                 if text.lower() in break_loop_list:
                     break
-                # Check if text is in uppercase and is alpha numeric
+        
                 if text.isupper() and text.isalpha():
                     client_name += " "+ text
                     client_name_coordinates.append([x1, y1, x2, y2])
+                elif text.lower() in ["name", ":"]:
+                    continue
+                elif text[0].isupper() and text[1:].islower():
+                    client_name += " "+ text
+                    client_name_coordinates.append([x1, y2, x2, y2])
+            
+            # Check if Client Name coordinates list is empty
+            if not client_name_coordinates:
+                self.logger.error("| Client Name coordinates list is empty")
+                return result
             
             # Check the length of client name coordinates list
             if len(client_name_coordinates) > 1:
@@ -133,7 +136,25 @@ class CDSLDocumentInfo:
                     return {"message": "No information found in CDSL document", "status": "REJECTED"}
                 else:
                     self.logger.info("| Successfully collected CDSL Document Information")
+                    # Return the document information list
                     return {"message": "Successfully Redacted CDSL document", "status": "REDACTED", "data": document_info_list}
+            else:
+                # Collect Pancard Number
+                pancard_number = self._extract_pancard_number()
+                if len(pancard_number['Coordinates']) == 0:
+                    self.logger.error("| No information for pancard number found in CDSL document")
+                    return {"message": "No information for pancard number found in CDSL document", "status": "REJECTED"}
+                document_info_list.append(pancard_number)
+
+                # Collect Client Name
+                client_name = self._extract_client_name()
+                if len(client_name['Coordinates']) == 0:
+                    self.logger.error("| No information for client name found in CDSL document")
+                    return {"message": "No information for client name found in CDSL document", "status": "REJECTED"}
+                document_info_list.append(client_name)
+
+                # Return the document information list
+                return {"message": "Successfully Redacted CDSL document", "status": "REDACTED", "data": document_info_list}
         except Exception as e:
             self.logger.error(f"| Error in collecting CDSL Document Information: {e}")
             return {"message": "Error in collecting CDSL Document Information", "status": "REJECTED"}
