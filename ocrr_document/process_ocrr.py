@@ -1,7 +1,12 @@
 from database.connection import EstablishDBConnection
 from document_identification.identify_doc import DocumentIdentification
 from documents.cdsl.document_coordinates import CDSLDocumentInfo
+from documents.e_pancard.document_coordinates import EPancardDocumentInfo
+from documents.pancard.document_coordinates import PancardDocumentInfo
 from prepare_xml.redacted import WriteRedactedDocumentXML
+from prepare_xml.rejected import WriteRejectedDocumentXML
+from prepare_xml.rejected_doc_coordinates import GetRejectedDocumentCoordinates
+from webhook.post_trigger import WebhookPostTrigger
 import os
 
 class ProcessDocumentOCRR:
@@ -9,22 +14,35 @@ class ProcessDocumentOCRR:
         self.document_info = docuemnt_info
         self.logger = logger
         self.redaction_level = redaction_level
+        
         self.db_client = None
+        self.collection_filedetails = None
+        self.collection_ocrr = None
+        self.collection_webhooks = None
+
 
     def _initialize_db_connection(self):
         try:
             # Establish connection to MongoDB
             self.db_client = EstablishDBConnection().establish_connection()
+
+            if self.db_client is not None:
+                self.collection_filedetails = self.db_client['upload']['fileDetails']
+                self.collection_webhooks = self.db_client['upload']['webhooks']
+                self.collection_ocrr = self.db_client['ocrrworkspace']['ocrr']
+            else:
+                self.logger.error(f"| Failed to connect to MongoDB.")
         except Exception as e:
-            self.logger.error(f"| Error in initializing DB connection: {e}")
-            raise e
-        
+            self.logger.error(f"| Failed to initialize MongoDB while Processing 'IN_PROGRESS' status documents: {e}")
+    
     def start_ocrr(self):
         try:
             self.logger.info("| Starting OCRR Process")
             identified_document = DocumentIdentification(self.document_info['ocrrworkspace_doc_path'], self.logger)
             idefntified_document_list = [
-                (identified_document.identify_document_type("CDSL"), "CDSL", self._cdsl_ocrr_process)
+                (identified_document.identify_document_type("CDSL"), "CDSL", self._cdsl_ocrr_process),
+                (identified_document.identify_document_type("E-PANCARD"), "E-PANCARD", self._e_pancard_ocrr_process),
+                (identified_document.identify_document_type("PANCARD"), "PANCARD", self._pancard_ocrr_process)
             ]
             document_identified = False
             for document_status, document_type, document_process in idefntified_document_list:
@@ -33,51 +51,80 @@ class ProcessDocumentOCRR:
                     document_process()
                     document_identified = True
                     break
-            # Document Un-identified
+            
+            # Check if document is un-identified
             if not document_identified:
                 self.logger.info(f"| Document Un-identified for task id: {self.document_info['taskId']}")
-            
-            # Remove document from the OCRR workspace
-            self._remove_document_from_ocrr_workspace(self.document_info['ocrrworkspace_doc_path'])
-            # Remove document from ocrrworkspace database ocrr collection
-            self._remove_document_from_ocrr_workspace_collection_ocrr(self.document_info['taskId'])
-            self.logger.info(f"| OCRR Process completed for: {self.document_info['taskId']}")
+                self._write_xml_rejected_status("Document Un-identified")
+            # Final Stage of OCRR Process
+            self._final_stage_ocrr_process(self.document_info['ocrrworkspace_doc_path'], self.document_info['taskId'])
         except Exception as e:
-            self.logger.error(f"| Error in OCRR Process: {e}")
-            raise e
+            self.logger.error(f"| Error in OCRR Process for task is: {self.document_info['taskId']}")
+            self._write_xml_rejected_status(e)
+            # Final Stage of OCRR Process
+            self._final_stage_ocrr_process(self.document_info['ocrrworkspace_doc_path'], self.document_info['taskId'])
     
-    # Write XML for coordinates
-    def _write_xml(self, status: str, coordinate_data: list, message: str):
-        if status == "REDACTED":
-            self.logger.info("| Writing XML for coordinates")
-            write_xml_coordinates = WriteRedactedDocumentXML(self.document_info['redactedPath'], self.document_info['document_name'], coordinate_data, self.logger)
-            write_xml_coordinates.write_xml()
-            self.logger.info(f"| XML Coordinate ready for {self.document_info['document_name']}")
-            write_xml_coordinates.write_redacted_data()
-            self.logger.info(f"| Redacted data ready for {self.document_info['document_name']}")
-            # Update the document status in the database
-            self._update_document_status(self.document_info['taskId'], "REDACTED", message)
+    # Write XML for REDACTED status
+    def _write_xml_redacted_status(self, coordinate_data: list, message: str):
+        self.logger.info("| Writing XML for REDACTED status document")
+        write_xml_coordinates = WriteRedactedDocumentXML(self.document_info['redactedPath'], self.document_info['document_name'], coordinate_data, self.logger)
+        write_xml_coordinates.write_xml()
+        self.logger.info(f"| XML Coordinate ready for {self.document_info['document_name']}")
+        write_xml_coordinates.write_redacted_data()
+        self.logger.info(f"| Redacted data ready for {self.document_info['document_name']}")
+        # Update the document status in the database
+        self._update_document_status(self.document_info['taskId'], "REDACTED", message)
+
+    # Write XML for REJECTED status
+    def _write_xml_rejected_status(self, message: str):
+        self.logger.info("| Writing XML for REJECTED status document")
+        # Get the 80% coordinates for the rejected document
+        rejected_doc_80_percent_coordinates = GetRejectedDocumentCoordinates(self.document_info['ocrrworkspace_doc_path']).get_coordinates()
+        write_xml_coordinates = WriteRejectedDocumentXML(self.document_info['redactedPath'], self.document_info['document_name'], rejected_doc_80_percent_coordinates, self.logger)
+        write_xml_coordinates.writexml()
+        self.logger.info(f"| XML Coordinate ready for {self.document_info['document_name']}")
+        # Update the document status in the database
+        self._update_document_status(self.document_info['taskId'], "REJECTED", message)
 
     # OCRR Process CDSL Document
     def _cdsl_ocrr_process(self):
         self.logger.info("| Starting OCRR Process for CDSL Document")
         result = CDSLDocumentInfo(self.document_info['ocrrworkspace_doc_path'], self.logger, self.redaction_level).collect_document_info()
-        # Write XML for coordinates
-        self._write_xml(result['status'], result['data'], result['message'])
-    
+        # Write XML for coordinates for REDACTED or REJECTED status
+        if result['status'] == "REDACTED":
+            self._write_xml_redacted_status(result['data'], result['message'])
+        else:
+            self._write_xml_rejected_status(result['message'])
+
+    # OCRR Process E-PANCARD Document
+    def _e_pancard_ocrr_process(self):
+        self.logger.info("| Starting OCRR Process for E-PANCARD Document")
+        result = EPancardDocumentInfo(self.document_info['ocrrworkspace_doc_path'], self.logger, self.redaction_level).collect_document_info()
+        # Write XML for coordinates for REDACTED or REJECTED status
+        if result['status'] == "REDACTED":
+            self._write_xml_redacted_status(result['data'], result['message'])
+        else:
+            self._write_xml_rejected_status(result['message'])
+
+    # OCRR Process PANCARD Document
+    def _pancard_ocrr_process(self):
+        self.logger.info("| Starting OCRR Process for PANCARD Document")
+        result = PancardDocumentInfo(self.document_info['ocrrworkspace_doc_path'], self.logger, self.redaction_level).collect_document_info()
+        # Write XML for coordinates for REDACTED or REJECTED status
+        if result['status'] == "REDACTED":
+            self._write_xml_redacted_status(result['data'], result['message'])
+        else:
+            self._write_xml_rejected_status(result['message'])
+            
     # Update the document status in the database
     def _update_document_status(self, taskid: str, status: str, message: str):
         try:
             # Initialize the database connection
             self._initialize_db_connection()
-            self.logger.info("| Updating document status in the database")
-            database_name = "upload"
-            collection_name = "fileDetails"
-            database = self.db_client[database_name]
-            collection = database[collection_name]
+            self.logger.info(f"| Updating document {status} status in the database")
             taskid_filter = {"taskId": taskid}
             update = {"$set": {"status": status, "taskResult": message}}
-            collection.update_one(taskid_filter, update)
+            self.collection_filedetails.update_one(taskid_filter, update)
             return True
         except Exception as e:
             self.logger.error(f"| Error in updating document status in the database: {e}")
@@ -107,3 +154,42 @@ class ProcessDocumentOCRR:
         except Exception as e:
             self.logger.error(f"| Error in removing document from the OCRR workspace collection: {e}")
             return False
+
+    
+    def _webhook_post_request(self, taskid: str):
+        # Send a webhook request for the task with the specified task ID
+        try:
+            # Prepare the payload data for the webhook request
+            webhook_data = self.collection_filedetails.find_one({"taskId": taskid})
+            if webhook_data is not None:
+                payload = {
+                    "taskId": taskid,
+                    "status": webhook_data['status'],
+                    "taskResult": webhook_data['taskResult'],
+                    "clientId": webhook_data['clientId'],
+                    "uploadDir": webhook_data['uploadDir']
+                }
+                # Get the URL from collection webhooks
+                webhook_url = self.collection_webhooks.find_one({"clientId": webhook_data['clientId']})
+                if webhook_url is not None:
+                    webhook_url = webhook_url['url']
+                    # Send the webhook request
+                    if WebhookPostTrigger(webhook_url, payload).send_post():
+                        self.logger.info(f"| Webhook request sent successfully for task: {taskid}")
+                    else:
+                        self.logger.error(f"| Failed to send webhook request for task: {taskid}")
+        except Exception as e:
+            self.logger.error(f"| Failed to send webhook request for task: {taskid}: {e}")
+    
+    # Final stage of OCRR process
+    def _final_stage_ocrr_process(self, ocrrworkspace_doc_path: str, taskid: str):
+        # Remove document from the OCRR workspace
+        self._remove_document_from_ocrr_workspace(ocrrworkspace_doc_path)
+        
+        # Remove document from ocrrworkspace database ocrr collection
+        self._remove_document_from_ocrr_workspace_collection_ocrr(taskid)
+        self.logger.info(f"| OCRR Process completed for: {taskid}")
+        
+        # Send Webhook POST request for the TASKID
+        # self._webhook_post_request(taskid)
+        # self.logger.info(f"| Webhook POST request for: {taskid}")
