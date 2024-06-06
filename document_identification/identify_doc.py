@@ -1,7 +1,8 @@
 import cv2
 import pytesseract
-
 from document_identification.documents.identify_cdsl_doc import IdentifyCDSLDocument
+from document_identification.documents.identify_e_pancard import IdentifyEPancardDocument
+from document_identification.documents.identify_pancard import IdentifyPancardDocument
 
 class DocumentIdentification:
     def __init__(self, ocrr_workspace_doc_path: str, logger: object) -> None:
@@ -11,8 +12,11 @@ class DocumentIdentification:
 
     def _identified_documents_result(self) -> dict:
         data_text_list = self._get_text_from_image()
+        # Identify the document type
         result = {
-            "CDSL": IdentifyCDSLDocument(data_text_list, self.logger).check_cdsl_document_match()
+            "CDSL": IdentifyCDSLDocument(data_text_list, self.logger).check_cdsl_document_match(),
+            "E-PANCARD": IdentifyEPancardDocument(data_text_list, self.logger).check_e_pancard_document_match(),
+            "PANCARD": IdentifyPancardDocument(data_text_list, self.logger).check_pancard_document_match()
         }
         return result
     

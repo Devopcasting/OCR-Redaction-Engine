@@ -1,7 +1,7 @@
 import re
 import difflib
 
-class IdentifyCDSLDocument:
+class IdentifyEPancardDocument:
     def __init__(self, text_list: list, logger: object):
         # List of text blocks
         self.text_list = text_list
@@ -9,15 +9,11 @@ class IdentifyCDSLDocument:
         self.logger = logger
 
         # Target strings to match
-        self.targets = ['cdsl', 'kyc', 'ventures', "cdse", "kra"]
+        self.targets = ['e-pan']
     
         # Regex patterns for approximate matching
         self.patterns = {
-            'cdsl': re.compile(r'\bcdsl\b', re.IGNORECASE),
-            'kyc': re.compile(r'\bkyc\b', re.IGNORECASE),
-            'ventures': re.compile(r'\bventures\b', re.IGNORECASE),
-            'cdse': re.compile(r'\bcdse\b', re.IGNORECASE),
-            'kra': re.compile(r'\bkra\b', re.IGNORECASE)
+            'e-pan': re.compile(r'\be-pan\b', re.IGNORECASE)
         }
     
     # Function to filter strings based on regex and find the closest match
@@ -31,11 +27,11 @@ class IdentifyCDSLDocument:
         return None
     
     # Function to check for matches and return True if found, otherwise False
-    def check_cdsl_document_match(self) -> bool:
+    def check_e_pancard_document_match(self) -> bool:
         # Loop through the target strings and find the closest
         for target in self.targets:
             match = self.find_closest_match(target, self.patterns[target])
             if match:
-                self.logger.info(f"| Found match for CDSL document")
+                self.logger.info(f"| Found match for E-Pancard document")
                 return True
         return False
