@@ -5,6 +5,7 @@ class IdentifyEPancardDocument:
     def __init__(self, text_list: list, logger: object):
         # List of text blocks
         self.text_list = text_list
+        
         # Logger object
         self.logger = logger
 
