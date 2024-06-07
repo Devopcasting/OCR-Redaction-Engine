@@ -32,15 +32,19 @@ class ProcessQueueDocuments:
             shutil.copy(document_info['path'], os.path.join(self.ocrr_workspace_path, document_info['renamedDoc']))
             self.logger.info(f"| Copied document to OCRR workspace: {document_info['renamedDoc']}")
 
-            # Identify document as Grayscale and Pre-Process Colored document
-            if self._check_document_is_grayscale(os.path.join(self.ocrr_workspace_path, document_info['renamedDoc'])):
-                # Convert the document to grayscale
-                self.logger.info(f"| Converting document to grayscale: {document_info['renamedDoc']}")
-                self._convert_document_to_grayscale(os.path.join(self.ocrr_workspace_path, document_info['renamedDoc']))
-            else:
-                # Pre-Process the colored document
-                self.logger.info(f"| Pre-Processing colored document: {document_info['renamedDoc']}")
-                self._pre_process_colored_document(os.path.join(self.ocrr_workspace_path, document_info['renamedDoc']))
+            # Convert the document to grayscale
+            self.logger.info(f"| Converting document to grayscale: {document_info['renamedDoc']}")
+            self._convert_document_to_grayscale(os.path.join(self.ocrr_workspace_path, document_info['renamedDoc']))
+               
+            # # Identify document as Grayscale and Pre-Process Colored document
+            # if self._check_document_is_grayscale(os.path.join(self.ocrr_workspace_path, document_info['renamedDoc'])):
+            #     # Convert the document to grayscale
+            #     self.logger.info(f"| Converting document to grayscale: {document_info['renamedDoc']}")
+            #     self._convert_document_to_grayscale(os.path.join(self.ocrr_workspace_path, document_info['renamedDoc']))
+            # elif self._check_document_is_colored(os.path.join(self.ocrr_workspace_path, document_info['renamedDoc'])):
+            #     # Pre-Process the colored document
+            #     self.logger.info(f"| Pre-Processing colored document: {document_info['renamedDoc']}")
+            #     self._pre_process_colored_document(os.path.join(self.ocrr_workspace_path, document_info['renamedDoc']))
         except Exception as e:
             self.logger.error(f"| Failed to Pre-Process document: {e}")
             return False
@@ -70,6 +74,21 @@ class ProcessQueueDocuments:
             self.logger.error(f"| Failed to check if document is grayscale: {e}")
             return False
     
+    def _check_document_is_colored(self, ocrr_workspace_doc_path: str) -> bool:
+        try:
+            # Load the image
+            document = cv2.imread(ocrr_workspace_doc_path)
+
+            # Check if the image has more than 3 dimensions (i.e., color)
+            if len(document.shape) == 3:
+                return True
+
+            # If the above conditions are not met, the image is colored
+            return False
+        except Exception as e:
+            self.logger.error(f"| Failed to check if document is colored: {e}")
+            return False
+
     def _pre_process_colored_document(self, ocrr_workspace_doc_path: str) -> bool:
         try:
             sigma_x = 1
