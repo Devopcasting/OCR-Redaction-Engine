@@ -47,6 +47,7 @@ class CDSLDocumentInfo:
     def _extract_client_name(self):
         result = {"CDSL Client Name": "","Coordinates": []}
         try:
+            # Extract Client Name and its Coordinates
             client_name = ""
             client_name_coordinates = []
             pancard_number_index = None

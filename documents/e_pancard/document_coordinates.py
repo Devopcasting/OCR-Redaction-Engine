@@ -58,6 +58,7 @@ class EPancardDocumentInfo:
     def _extract_dates(self) -> dict:
         result = {"E-Pancard DOB": "", "Coordinates": []}
         try:
+            # Extract Pancard DOB and its Coordinates
             dob = ""
             dob_coordinates = []
             coordinates = []
@@ -97,6 +98,7 @@ class EPancardDocumentInfo:
     def _extract_gender(self) -> dict:
         result = {"E-Pancard Gender": "", "Coordinates": []}
         try:
+            # Extract Pancard Gender and its Coordinates
             gender = ""
             gender_coordinates = []
 
@@ -128,6 +130,7 @@ class EPancardDocumentInfo:
     def _extract_client_name(self) -> dict:
         result = {"E-Pancard Client Name": "", "Coordinates": []}
         try:
+            # Extract Pancard Client Name and its Coordinates
             client_name = ""
             client_name_top_side_list = ""
             client_name_bottom_side_list = ""
@@ -202,6 +205,7 @@ class EPancardDocumentInfo:
     def _extract_client_father_name(self) -> dict:
         result = {"E-Pancard Client Father Name": "", "Coordinates": []}
         try:
+            # Extract Pancard Client Father Name and its Coordinates
             father_name = ""
             father_name_top_side_list = []
             father_name_bottom_side_list = []
@@ -272,6 +276,7 @@ class EPancardDocumentInfo:
     def _extract_qrcodes(self):
         result = {"E-Pancard QRCodes": "", "Coordinates": []}
         try:
+            # Extract QR Codes coordinates from Pancard Document
             # Initialize QRCode Reader
             qrreader = QReader()
     
