@@ -14,7 +14,7 @@ class PancardDocumentInfo:
         # Tesseract configuration
         tesseract_config = r'--oem 3 --psm 11'
         self.text_data = pytesseract.image_to_string(self.ocrr_workspace_doc_path, lang="eng", config=tesseract_config)
-        print(self.coordinates)
+        #print(self.coordinates)
         
     # Method to extract Pancard Number and its Coordinates
     def _extract_pancard_number(self) -> dict:
@@ -99,53 +99,54 @@ class PancardDocumentInfo:
             client_name_split = []
             coordinates = []
             name_keyword_index = 0
-            break_loop_keywords = ["fathers", "father", "name", "hratlifies", "pacers"]
+            break_loop_keywords = [
+                r"\b\w*(father['’]s|father|eather['’]s|fathar['’]s|fathers|ffatugr|ffatubr['’]s)\b",
+                r"\b\w*(hratlifies|facer|hratlieies|name)\b"
+            ]
 
-            # Define a threshold for a near match
-            threshold = 80
-            
-            # Flag to indicate if a match has been found
+            # Flag to indicate if a match has been found for breaking the loop
             match_found = False
             
             # Define the target text to search for
-            target_text = ["name", "uiname", "mame", "nun", "alatar", "fname", "hehe"]
+            target_text = [
+                r"\b(name|uiname|mame|nun|alatar|fname|hehe|itiame)\b"
+            ]
 
             # Get the text data in a list
             text_data_list = [text.strip() for text in self.text_data.split("\n") if len(text) != 0]
 
-            print(text_data_list)
-
-            # Loop through the text data list and find the element nearest matcihng
-            for index, text in enumerate(text_data_list):
-                if match_found:
-                    break
-                # Ignore single-character or very short matches
-                if len(text) <= 2:
-                    continue
-                for target in target_text:
-                    if fuzz.partial_ratio(target.lower(), text.lower()) >= threshold:
+            # Loop through the target text patterns
+            for pattern in target_text:
+                compiled_pattern = re.compile(pattern, flags=re.IGNORECASE)
+                for index, text in enumerate(text_data_list):
+                    # Search for pattern in the text block
+                    if re.search(compiled_pattern, text):
                         name_keyword_index = index
-                        match_found = True
                         break
+                if name_keyword_index != 0:
+                    break
+            
             # Check if name index number is not found
             if name_keyword_index == 0:
                 self.logger.error("| Name keyword not found in Pancard document")
                 return result
             
             # Loop through the text data list starting from next index number of name_keyword_index
-            match_found = False
             for index, text in enumerate(text_data_list[name_keyword_index + 1:]):
+                # Loop throgh the break loop keyword patterns
+                for pattern in break_loop_keywords:
+                    compiled_pattern = re.compile(pattern, flags=re.IGNORECASE)
+                    # Search for pattern in the text block
+                    if re.search(compiled_pattern, text):
+                        match_found = True
+                        break
+                # Check if match_found is True
                 if match_found:
                     break
-                if text.lower() not in ["co,"]:
-                    if text.isupper():
-                        client_name = text
-                        client_name_split = text.split()
-                    # Check if the text matches any of the break_loop_keywords
-                    for target in break_loop_keywords:
-                        if fuzz.partial_ratio(target.lower(), text.lower()) >= threshold:
-                            match_found = True
-                            break
+                # Check if text is uppercase
+                if text.isupper():
+                    client_name = text
+                    client_name_split = text.split()
                 
             # Check if Client Name is not found
             if not client_name:
@@ -182,60 +183,69 @@ class PancardDocumentInfo:
             father_name_split = []
             coordinates = []
             father_keyword_index = 0
-            break_loop_keywords = ["date", "birth", "brth", "bit", "ate", "fh", "s", "hn"]
-
-            # Define a threshold for a near match
-            threshold = 80
+            skip_name_list = [
+                r"\b\w*(an)\b"
+            ]
+            break_loop_keywords = [
+                r"\b\w*(date|birth|brth|bit|ate|fh|hn)\b",
+                r"\b\w*(&|da)\b"
+            ]
 
             # Flag to indicate if a match has been found
             match_found = False
+            
 
             # Define the target text to search for
-            target_text = ["father's", "father", "eather's", 
-                           "father's","ffatubr's", "fathers", 
-                           "hratlieies", "ffatugr's", "father",
-                            "father", "father's", "facer","race", 
-                            "eaters", "ffatubr", "hratlifies"]
-            
+            target_text = [
+                r"\b\w*(father['']s|father|eather['']s|fathar['']s|fathers|ffatugr|ffatubr['']s)\b",
+                r"\b\w*(hratlifies|facer|hratlieies)\b"
+            ]
             # Get the text data in a list
             text_data_list = [text.strip() for text in self.text_data.split("\n") if len(text) != 0]
-            
-            # Loop through the text data list and find the element nearest matcihng
-            for index, text in enumerate(text_data_list):
-                if match_found:
-                    break
-                
-                # Ignore single-character or very short matches
-                if len(text) <= 2:
-                    continue
-
-                for target in target_text:
-                    if fuzz.partial_ratio(target.lower(), text.lower()) >= threshold:
+            print(text_data_list)
+            # Loop through the target text patterns
+            for pattern in target_text:
+                compiled_pattern = re.compile(pattern, flags=re.IGNORECASE)
+                for index, text in enumerate(text_data_list):
+                    # Search for pattern in the text block
+                    if re.search(compiled_pattern, text):
                         father_keyword_index = index
-                        match_found = True
                         break
-            
+                if father_keyword_index != 0:
+                    break
+            print(father_keyword_index)
             # Check if father index number is not found
             if father_keyword_index == 0:
                 self.logger.error("| Father keyword not found in Pancard document")
                 return result
             
             # Loop through the text data list starting from next index number of name_keyword_index
-            match_found = False
             for index, text in enumerate(text_data_list[father_keyword_index + 1:]):
+                skip_match_found = False
+                # Loop throgh the break loop keyword patterns
+                for pattern in break_loop_keywords:
+                    compiled_pattern = re.compile(pattern, flags=re.IGNORECASE)
+                    # Search for pattern in the text block
+                    if re.search(compiled_pattern, text):
+                        match_found = True
+                        break
+                # Check if match_found is True
                 if match_found:
                     break
-                
-                if text.lower() not in ["ae", "an", "at", "es"]:
-                    if text.isupper():
-                        father_name = text
-                        father_name_split = text.split()
-
-                    # Check if the text matches any of the break_loop_keywords
-                    for target in break_loop_keywords:
-                        if fuzz.partial_ratio(target.lower(), text.lower()) >= threshold:
-                            match_found = True
-                            break
+              
+                # Loop through the skip name list
+                for pattern in skip_name_list:
+                    compiled_pattern = re.compile(pattern, flags=re.IGNORECASE)
+                    # Search for pattern in the text block
+                    if re.search(compiled_pattern, text):
+                        skip_match_found = True
+                        break
+                                 
+                # Check if the text is in uppercase and no skip name match is found
+                if text.isupper() and not skip_match_found:
+                    father_name = text
+                    father_name_split = text.split()
+                    break
 
             # Check if Client Father Name is not found
             if not father_name:
@@ -268,6 +278,7 @@ class PancardDocumentInfo:
         result = {"Pancard QRCodes": "", "Coordinates": []}
         try:
             # Extract QR Codes coordinates from Pancard Document
+
             # Initialize QRCode Reader
             qrreader = QReader()
     
