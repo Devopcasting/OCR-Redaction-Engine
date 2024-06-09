@@ -20,6 +20,12 @@ class ProcessDocumentOCRR:
         self.collection_ocrr = None
         self.collection_webhooks = None
 
+        self.document_types = ["CDSL", "E-PANCARD", "PANCARD"]
+        self.document_type_ocrr_methods = {
+                "CDSL": self._cdsl_ocrr_process,
+                "E-PANCARD": self._e_pancard_ocrr_process,
+                "PANCARD": self._pancard_ocrr_process
+            }
 
     def _initialize_db_connection(self):
         try:
@@ -38,19 +44,22 @@ class ProcessDocumentOCRR:
     def start_ocrr(self):
         try:
             self.logger.info("| Starting OCRR Process")
+            # Initialize DocumentIdentification
             identified_document = DocumentIdentification(self.document_info['ocrrworkspace_doc_path'], self.logger)
-            idefntified_document_list = [
-                (identified_document.identify_document_type("CDSL"), "CDSL", self._cdsl_ocrr_process),
-                (identified_document.identify_document_type("E-PANCARD"), "E-PANCARD", self._e_pancard_ocrr_process),
-                (identified_document.identify_document_type("PANCARD"), "PANCARD", self._pancard_ocrr_process)
-            ]
+            
+            # Set Flag for Docuemnt Identified
             document_identified = False
-            for document_status, document_type, document_process in idefntified_document_list:
+            
+            # Loop through document types and identify the document type
+            for document_type in self.document_types:
+                document_status = identified_document.identify_document_type(document_type)
                 if document_status:
                     self.logger.info(f"| Document Identified as {document_type}")
-                    document_process()
+                    # Process the document
+                    docuemnt_process = self.document_type_ocrr_methods[f"{document_type}"]
+                    docuemnt_process()
+                    # Set the Flag
                     document_identified = True
-                    break
             
             # Check if document is un-identified
             if not document_identified:
