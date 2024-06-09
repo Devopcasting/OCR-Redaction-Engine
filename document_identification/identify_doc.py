@@ -8,17 +8,7 @@ class DocumentIdentification:
     def __init__(self, ocrr_workspace_doc_path: str, logger: object) -> None:
         self.ocrr_workspace_doc_path = ocrr_workspace_doc_path
         self.logger = logger
-    
-
-    def _identified_documents_result(self) -> dict:
-        data_text_list = self._get_text_from_image()
-        # Identify the document type
-        result = {
-            "CDSL": IdentifyCDSLDocument(data_text_list, self.logger).check_cdsl_document_match(),
-            "E-PANCARD": IdentifyEPancardDocument(data_text_list, self.logger).check_e_pancard_document_match(),
-            "PANCARD": IdentifyPancardDocument(data_text_list, self.logger).check_pancard_document_match()
-        }
-        return result
+        self.allowed_document_types = ['CDSL', 'E-PANCARD', 'PANCARD']
     
     def _get_text_from_image(self) -> list:
         # Load the image
@@ -32,8 +22,14 @@ class DocumentIdentification:
         return data_text['text']
 
     def identify_document_type(self, document_type: str) -> bool:
-        identified_document_result_dict = self._identified_documents_result()
-        if document_type in identified_document_result_dict:
-            return identified_document_result_dict[document_type]
+        if document_type in self.allowed_document_types:
+            # Use match case to identify the document type
+            match document_type:
+                case 'CDSL':
+                    return IdentifyCDSLDocument(self._get_text_from_image(), self.logger).check_cdsl_document_match()
+                case 'E-PANCARD':
+                    return IdentifyEPancardDocument(self._get_text_from_image(), self.logger).check_e_pancard_document_match()
+                case 'PANCARD':
+                    return IdentifyPancardDocument(self._get_text_from_image(), self.logger).check_pancard_document_match()
         else:
             return False
