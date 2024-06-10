@@ -11,9 +11,9 @@ class IdentifyPancardDocument:
 
         # Target strings to match
         self.targets = [
-               r"\b\w*(permarent|pefirianent|pereierent|petmancnt|petraancnt|permanent|petianent|pormanent|perenent|fermanent)\b",
-               r"\b\w*(incometax|incometaxdepartment|incombtaxdepartment|tincometaxdepakinent|fetax| nt number)\b",
-               r"\b\w*(department|departmen)\b"
+               r"\b\w*(permarent|pefirianent|pereierent|permante|petmancnt|petraancnt|permanent|petianent|pormanent|perenent|fermanent)\b",
+               r"\b\w*(incometax|incometaxdepartment|incombtaxdepartment|tincometaxdepakinent|fetax| nt number| income | tax | tak)\b",
+               r"\b\w*(department|departmen|departnent)\b"
         ]
 
     def check_pancard_document_match(self) -> bool:
