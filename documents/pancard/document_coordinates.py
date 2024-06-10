@@ -2,8 +2,10 @@ import pytesseract
 import re
 from PIL import Image
 from qreader import QReader
+from documents.pancard.pattern1 import PancardPattern1
+from documents.pancard.pattern2 import PancardPattern2
 from helper.text_coordinates import ImageTextCoordinates
-from fuzzywuzzy import fuzz
+
 
 class PancardDocumentInfo:
     def __init__(self, ocrr_workspace_doc_path: str, logger: object, redaction_level: int) -> None:
@@ -15,6 +17,11 @@ class PancardDocumentInfo:
         tesseract_config = r'--oem 3 --psm 11'
         self.text_data = pytesseract.image_to_string(self.ocrr_workspace_doc_path, lang="eng", config=tesseract_config)
         #print(self.coordinates)
+        # Pancard Pattern
+        self.pancard_pattern_1 = [
+            r"\b\w*(father['’]s|father|eather['’]s|fathar['’]s|fathers|ffatugr|ffatubr['’]s)\b",
+            r"\b\w*(hratlifies|facer|pacers|hratlieies|name)\b"
+            ]
         
     # Method to extract Pancard Number and its Coordinates
     def _extract_pancard_number(self) -> dict:
@@ -64,12 +71,12 @@ class PancardDocumentInfo:
             width = 0
 
             # DOB Pattern: DD/MM/YYY, DD-MM-YYY
-            dob_pattern = r'\d{2}/\d{2}/\d{4}|\d{2}-\d{2}-\d{4}|\d{4}/\d{4}|\d{2}/\d{2}/\d{2}'
+            dob_pattern = r'\d{2}/\d{2}/\d{4}|\d{2}-\d{2}-\d{4}|\d{4}/\d{4}|\d{2}/\d{2}/\d{2}|\d{1}/\d{2}/\d{4}'
 
             # Loop through all text coordinates
             for x1, y1, x2, y2, text in self.coordinates:
                 # Check if text matches the DOB pattern
-                if re.match(dob_pattern, text, flags=re.IGNORECASE):
+                if re.search(dob_pattern, text, flags=re.IGNORECASE):
                     width = x2 - x1
                     dob += " "+ text
                     dob_coordinates.append([x1, y1, x2, y2])
@@ -95,178 +102,100 @@ class PancardDocumentInfo:
         result = {"Pancard Client Name": "", "Coordinates": []}
         try:
             # Extract Pancard Client Name and its Coordinates
+            coordinates = []
             client_name = ""
             client_name_split = []
-            coordinates = []
-            name_keyword_index = 0
-            break_loop_keywords = [
-                r"\b\w*(father['’]s|father|eather['’]s|fathar['’]s|fathers|ffatugr|ffatubr['’]s)\b",
-                r"\b\w*(hratlifies|facer|hratlieies|name)\b"
-            ]
-
-            # Flag to indicate if a match has been found for breaking the loop
-            match_found = False
+            pancard_pattern_1_found = False
             
-            # Define the target text to search for
-            target_text = [
-                r"\b(name|uiname|mame|nun|alatar|fname|hehe|itiame)\b"
-            ]
+            # Pancard Pattern
+            # pancard_pattern_1 = [
+            #     r"\b\w*(father['’]s|father|eather['’]s|fathar['’]s|fathers|ffatugr|ffatubr['’]s)\b",
+            #     r"\b\w*(hratlifies|facer|pacers|hratlieies|name)\b",
+            #     r"\b(name|uiname|mame|nun|alatar|fname|hehe|itiame)\b"
+            # ]
 
             # Get the text data in a list
             text_data_list = [text.strip() for text in self.text_data.split("\n") if len(text) != 0]
-
-            # Loop through the target text patterns
-            for pattern in target_text:
+            
+            # Find the pattern of Pancard
+            # Pattern-1 : Name and Father's Name label is available
+            # Pattern-2 : Name and Father's Name label is not available
+            for pattern in self.pancard_pattern_1:
                 compiled_pattern = re.compile(pattern, flags=re.IGNORECASE)
                 for index, text in enumerate(text_data_list):
-                    # Search for pattern in the text block
                     if re.search(compiled_pattern, text):
-                        name_keyword_index = index
+                        print(text)
+                        pancard_pattern_1_found = True
                         break
-                if name_keyword_index != 0:
+                if pancard_pattern_1_found:
                     break
-            
-            # Check if name index number is not found
-            if name_keyword_index == 0:
-                self.logger.error("| Name keyword not found in Pancard document")
-                return result
-            
-            # Loop through the text data list starting from next index number of name_keyword_index
-            for index, text in enumerate(text_data_list[name_keyword_index + 1:]):
-                # Loop throgh the break loop keyword patterns
-                for pattern in break_loop_keywords:
-                    compiled_pattern = re.compile(pattern, flags=re.IGNORECASE)
-                    # Search for pattern in the text block
-                    if re.search(compiled_pattern, text):
-                        match_found = True
-                        break
-                # Check if match_found is True
-                if match_found:
-                    break
-                # Check if text is uppercase
-                if text.isupper():
-                    client_name = text
-                    client_name_split = text.split()
-                
-            # Check if Client Name is not found
-            if not client_name:
-                self.logger.error("| Client Name not found in Pancard document")
-                return result
-            
-            # Check the length of the Client Name
-            if len(client_name_split) > 1:
-                client_name_split = client_name_split[:-1]
-            
-            # Get the coordinates of the Client Name
-            for i, (x1, y1, x2, y2, text) in enumerate(self.coordinates):
-                if text in client_name_split:
-                    # Check if coordinates are not available in the list
-                    if [x1, y1, x2, y2] not in coordinates:
-                        coordinates.append([x1, y1, x2, y2])
 
+            # Check if Pancard Pattern-1 is found
+            if pancard_pattern_1_found:
+                self.logger.info("| Pancard Pattern-1 is found")
+                # Get the coordinates of client name
+                client_name_result = PancardPattern1(self.coordinates, text_data_list, self.logger).get_client_name()
+            else:
+                self.logger.info("| Pancard Pattern-2 is found")
+                # Get the coordinates of client name
+                client_name_result = PancardPattern2(self.coordinates, text_data_list, self.logger).get_client_name()
+                
+            # Check the client name result
+            if not client_name_result['coordinate']:
+                self.logger.error("| Client name not found in Pancard document")
+                return result
+            
             # Update result
             result = {
-                "Pancard Client Name": client_name,
-                "Coordinates": coordinates
+                "Pancard Client Name": client_name_result['client_name'],
+                "Coordinates": client_name_result['coordinate']
             }
             return result
         except Exception as e:
             self.logger.error(f"| Error while extracting Pancard Client Name: {e}")
-            return result
-
+            
     # Method to extract Pancard Client Father Name and its Coordinates
     def _extract_pancard_client_father_name(self) -> dict:
         result = {"Pancard Client Father Name": "", "Coordinates": []}
         try:
             # Extract Pancard Client Father Name and its Coordinates
-            father_name = ""
-            father_name_split = []
             coordinates = []
-            father_keyword_index = 0
-            skip_name_list = [
-                r"\b\w*(an)\b"
-            ]
-            break_loop_keywords = [
-                r"\b\w*(date|birth|brth|bit|ate|fh|hn)\b",
-                r"\b\w*(&|da)\b"
-            ]
+            pancard_pattern_1_found = False
 
-            # Flag to indicate if a match has been found
-            match_found = False
-            
-
-            # Define the target text to search for
-            target_text = [
-                r"\b\w*(father['']s|father|eather['']s|fathar['']s|fathers|ffatugr|ffatubr['']s)\b",
-                r"\b\w*(hratlifies|facer|hratlieies)\b"
-            ]
             # Get the text data in a list
             text_data_list = [text.strip() for text in self.text_data.split("\n") if len(text) != 0]
-            print(text_data_list)
-            # Loop through the target text patterns
-            for pattern in target_text:
+
+            # Find the pattern of Pancard
+            # Pattern-1 : Name and Father's Name label is available
+            # Pattern-2 : Name and Father's Name label is not available
+            for pattern in self.pancard_pattern_1:
                 compiled_pattern = re.compile(pattern, flags=re.IGNORECASE)
                 for index, text in enumerate(text_data_list):
-                    # Search for pattern in the text block
                     if re.search(compiled_pattern, text):
-                        father_keyword_index = index
+                        pancard_pattern_1_found = True
                         break
-                if father_keyword_index != 0:
+                if pancard_pattern_1_found:
                     break
-            print(father_keyword_index)
-            # Check if father index number is not found
-            if father_keyword_index == 0:
-                self.logger.error("| Father keyword not found in Pancard document")
+
+            # Check if Pancard Pattern-1 is found
+            if pancard_pattern_1_found:
+                self.logger.info("| Pancard Pattern-1 is found")
+                # Get the coordinates of client father name
+                client_father_name_result = PancardPattern1(self.coordinates, text_data_list, self.logger).get_client_father_name()
+            else:
+                self.logger.info("| Pancard Pattern-2 is found")
+                # Get the coordinates of client father name
+                client_father_name_result = PancardPattern2(self.coordinates, text_data_list, self.logger).get_client_father_name()
+            
+            # Check the client father name result
+            if not client_father_name_result['coordinate']:
+                self.logger.error("| Client father name not found in Pancard document")
                 return result
             
-            # Loop through the text data list starting from next index number of name_keyword_index
-            for index, text in enumerate(text_data_list[father_keyword_index + 1:]):
-                skip_match_found = False
-                # Loop throgh the break loop keyword patterns
-                for pattern in break_loop_keywords:
-                    compiled_pattern = re.compile(pattern, flags=re.IGNORECASE)
-                    # Search for pattern in the text block
-                    if re.search(compiled_pattern, text):
-                        match_found = True
-                        break
-                # Check if match_found is True
-                if match_found:
-                    break
-              
-                # Loop through the skip name list
-                for pattern in skip_name_list:
-                    compiled_pattern = re.compile(pattern, flags=re.IGNORECASE)
-                    # Search for pattern in the text block
-                    if re.search(compiled_pattern, text):
-                        skip_match_found = True
-                        break
-                                 
-                # Check if the text is in uppercase and no skip name match is found
-                if text.isupper() and not skip_match_found:
-                    father_name = text
-                    father_name_split = text.split()
-                    break
-
-            # Check if Client Father Name is not found
-            if not father_name:
-                self.logger.error("| Client Father Name not found in Pancard document")
-                return result
-            
-            # Check the length of the Client Father Name
-            if len(father_name_split) > 1:
-                father_name_split = father_name_split[:-1]
-
-            # Get the coordinates of the Client Father Name
-            for i, (x1, y1, x2, y2, text) in enumerate(self.coordinates):
-                if text in father_name_split:
-                    # Check if coordinates are not available in the list
-                    if [x1, y1, x2, y2] not in coordinates:
-                        coordinates.append([x1, y1, x2, y2])
-
-            # Update result
+            # Update the result
             result = {
-                "Pancard Client Father Name": father_name,
-                "Coordinates": coordinates
+                "Pancard Client Father Name": client_father_name_result['client_father_name'],
+                "Coordinates": client_father_name_result['coordinate']
             }
             return result
         except Exception as e:
