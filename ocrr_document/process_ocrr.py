@@ -3,11 +3,14 @@ from document_identification.identify_doc import DocumentIdentification
 from documents.cdsl.document_coordinates import CDSLDocumentInfo
 from documents.e_pancard.document_coordinates import EPancardDocumentInfo
 from documents.pancard.document_coordinates import PancardDocumentInfo
+from documents.e_aadhaar.document_coordinates import EAadhaarDocumentInfo
+from documents.aadhaar.document_coordinates import AadhaarDocumentInfo
 from prepare_xml.redacted import WriteRedactedDocumentXML
 from prepare_xml.rejected import WriteRejectedDocumentXML
 from prepare_xml.rejected_doc_coordinates import GetRejectedDocumentCoordinates
 from webhook.post_trigger import WebhookPostTrigger
 import os
+import sys
 
 class ProcessDocumentOCRR:
     def __init__(self, docuemnt_info: dict, logger: object, redaction_level: int) -> None:
@@ -20,11 +23,13 @@ class ProcessDocumentOCRR:
         self.collection_ocrr = None
         self.collection_webhooks = None
 
-        self.document_types = ["CDSL", "E-PANCARD", "PANCARD"]
+        self.document_types = ["CDSL", "E-PANCARD", "PANCARD", "E-AADHAAR", "AADHAAR"]
         self.document_type_ocrr_methods = {
                 "CDSL": self._cdsl_ocrr_process,
                 "E-PANCARD": self._e_pancard_ocrr_process,
-                "PANCARD": self._pancard_ocrr_process
+                "PANCARD": self._pancard_ocrr_process,
+                "E-AADHAAR": self._e_aadhaar_ocrr_process,
+                "AADHAAR": self._aadhaar_ocrr_process
             }
 
     def _initialize_db_connection(self):
@@ -124,7 +129,27 @@ class ProcessDocumentOCRR:
             self._write_xml_redacted_status(result['data'], result['message'])
         else:
             self._write_xml_rejected_status(result['message'])
-            
+
+    # OCRR Process E-AADHAAR Document
+    def _e_aadhaar_ocrr_process(self):
+        self.logger.info("| Starting OCRR Process for E-AADHAAR Document")
+        result = EAadhaarDocumentInfo(self.document_info['ocrrworkspace_doc_path'], self.logger, self.redaction_level).collect_document_info()
+        # Write XML for coordinates for REDACTED or REJECTED status
+        if result['status'] == "REDACTED":
+            self._write_xml_redacted_status(result['data'], result['message'])
+        else:
+            self._write_xml_rejected_status(result['message'])
+
+    # OCRR Process AADHAAR Document
+    def _aadhaar_ocrr_process(self):
+        self.logger.info("| Starting OCRR Process for AADHAAR Document")
+        result = AadhaarDocumentInfo(self.document_info['ocrrworkspace_doc_path'], self.logger, self.redaction_level).collect_document_info()
+        # Write XML for coordinates for REDACTED or REJECTED status
+        if result['status'] == "REDACTED":
+            self._write_xml_redacted_status(result['data'], result['message'])
+        else:
+            self._write_xml_rejected_status(result['message'])
+
     # Update the document status in the database
     def _update_document_status(self, taskid: str, status: str, message: str):
         try:
