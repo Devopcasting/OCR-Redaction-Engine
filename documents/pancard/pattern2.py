@@ -51,7 +51,7 @@ class PancardPattern2:
             
             # Get the index of the name keyword
             name_keyword_index = self._get_name_keyword_index()
-            print(name_keyword_index)
+            
             # Check if name keyword index is 0
             if name_keyword_index == 0:
                 self.logger.info("| Client name keyword not found")
@@ -128,7 +128,7 @@ class PancardPattern2:
             # Date Pattern Label
             date_pattern = r'\d{2}/\d{2}/\d{4}|\d{2}-\d{2}-\d{4}|\d{4}/\d{4}|\d{2}/\d{2}/\d{2}|\d{1}/\d{2}/\d{4}'
             date_label_pattern = [r"\b\w*(bonn|birth)\b"]
-            
+            permanent_label = [r"\b\w*(petmancnt | account | number | permanent)\b"]
             # Matching keyword index
             matching_keyword_index = 0
             
@@ -163,9 +163,27 @@ class PancardPattern2:
                     if text.isupper() and len(text) > 1:
                         client_father_name = text
                         break
-            
-            # Check if matching keyword index is 0
+
             if matching_keyword_index == 0:
+                # Get the matching keyword index from permanent label pattern
+                for index, text in enumerate(reverse_text_data_list):
+                    for pattern in permanent_label:
+                        compiled_pattern = re.compile(pattern, flags=re.IGNORECASE)
+                        if re.search(compiled_pattern, text):
+                            matching_keyword_index = index
+                            break
+            print(matching_keyword_index)
+            # Loop through the text data list starting from next index number of matching_keyword_index
+            if matching_keyword_index != 0:
+                for index, text in enumerate(reverse_text_data_list[matching_keyword_index + 1:]):
+                    
+                    # Check if text is uppercase
+                    if text.isupper() and len(text) > 1:
+                        client_father_name = text
+                        break
+
+            # Check if client father name is empty
+            if not client_father_name:
                 self.logger.info("| Client father name keyword not found")
                 return {"client_father_name": "", "coordinate": []}
             

@@ -20,8 +20,8 @@ class PancardDocumentInfo:
         # Pancard Pattern
         self.pancard_pattern_1 = [
             r"\b\w*(father['’]s|father|eather['’]s|fathar['’]s|fathers|ffatugr|ffatubr['’]s)\b",
-            r"\b\w*(hratlifies|facer|pacers|hratlieies|name)\b"
-            ]
+            r"\b\w*(hratlifies|facer|pacers|hratlieies)\b"
+            ]   
         
     # Method to extract Pancard Number and its Coordinates
     def _extract_pancard_number(self) -> dict:
@@ -132,11 +132,11 @@ class PancardDocumentInfo:
 
             # Check if Pancard Pattern-1 is found
             if pancard_pattern_1_found:
-                self.logger.info("| Pancard Pattern-1 is found")
+                self.logger.info("| Pancard Pattern-1 is found : Client name")
                 # Get the coordinates of client name
                 client_name_result = PancardPattern1(self.coordinates, text_data_list, self.logger).get_client_name()
             else:
-                self.logger.info("| Pancard Pattern-2 is found")
+                self.logger.info("| Pancard Pattern-2 is found: Client name")
                 # Get the coordinates of client name
                 client_name_result = PancardPattern2(self.coordinates, text_data_list, self.logger).get_client_name()
                 
@@ -179,11 +179,11 @@ class PancardDocumentInfo:
 
             # Check if Pancard Pattern-1 is found
             if pancard_pattern_1_found:
-                self.logger.info("| Pancard Pattern-1 is found")
+                self.logger.info("| Pancard Pattern-1 is found: Client Father name")
                 # Get the coordinates of client father name
                 client_father_name_result = PancardPattern1(self.coordinates, text_data_list, self.logger).get_client_father_name()
             else:
-                self.logger.info("| Pancard Pattern-2 is found")
+                self.logger.info("| Pancard Pattern-2 is found: Client Father name")
                 # Get the coordinates of client father name
                 client_father_name_result = PancardPattern2(self.coordinates, text_data_list, self.logger).get_client_father_name()
             
