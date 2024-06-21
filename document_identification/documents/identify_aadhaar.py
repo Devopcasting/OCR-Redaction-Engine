@@ -4,14 +4,14 @@ class IdentifyAadhaarDocument:
     def __init__(self, text_list: list, logger: object) -> None:
         # List of text blocks
         self.text_list = text_list
-        print(self.text_list)
+        #print(self.text_list)
         
         # Logger object
         self.logger = logger
 
         # Target strings to match
         self.targets = [
-            r"\b\w*(uidal.gov.in|male|female|mame|femala|eemale|government of india|UniqualidentificationsAuthority|MERA AADHAAR  MERI PEHGHAN|Unique identification Authority oF india|Aadhaar-Aam Admi ka Adhikar|autiority of india|www.uldal.gov.in)\b"
+            r"\b(uidal.gov.in|male|female|mame|femala|femate|eemale|government of india|UniqualidentificationsAuthority|MERA AADHAAR  MERI PEHGHAN|Unique identification Authority oF india|wwwuldal.cowin|Aadhaar-Aam Admi ka Adhikar|autiority of india|authority-of|www.uldal.gov.in)\b"
         ]
     
     def check_aadhaar_document_match(self) -> bool:

@@ -4,7 +4,7 @@ class IdentifyPancardDocument:
     def __init__(self, text_list: list, logger: object):
         # List of text blocks
         self.text_data_list = [text.strip() for text in text_list if len(text) != 0]
-        
+        #print(self.text_data_list)
         # Logger object
         self.logger = logger
 

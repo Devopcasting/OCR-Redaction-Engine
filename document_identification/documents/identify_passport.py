@@ -1,6 +1,6 @@
 import re
 
-class IdentifyEPancardDocument:
+class IdentifyPassportDocument:
     def __init__(self, text_list: list, logger: object):
         # List of text blocks
         self.text_data_list = [text.strip() for text in text_list if len(text) != 0]
@@ -9,10 +9,12 @@ class IdentifyEPancardDocument:
         self.logger = logger
 
         # Target strings to match
-        self.targets = [r"\b(e-pan)\b"]
-    
+        self.targets = [
+            r"\b\w*(posspau|pusepart|basepent|passgert|sport|passport|jpassport|pasaport|passpon|ipassport|bissport|passoars|passportno|paeupari|paasport)\b",
+            r"\b\w*(republic|overseas|citizen|given|repurlic)\b"
+        ]
 
-    def check_e_pancard_document_match(self) -> bool:
+    def check_passport_document_match(self) -> bool:
         # Loop through the target patterns
         for pattern in self.targets:
             compiled_pattern = re.compile(pattern, flags=re.IGNORECASE)
@@ -20,6 +22,6 @@ class IdentifyEPancardDocument:
                 # Search for pattern in the text block
                 if re.search(compiled_pattern, text_block):
                     # If a match is found, return True
-                    self.logger.info(f"| Found match for E-Pancard document")
+                    self.logger.info(f"| Found match for Passport document")
                     return True
-        return False
+        return False 
