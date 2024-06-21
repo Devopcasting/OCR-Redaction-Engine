@@ -15,7 +15,7 @@ class AadhaarDocumentInfo:
         # Tesseract configuration
         tesseract_config = r'--oem 3 --psm 11'
         self.text_data = pytesseract.image_to_string(self.ocrr_workspace_doc_path, lang="eng", config=tesseract_config)
-        print(self.coordinates)
+        #print(self.coordinates)
         # List of Places
         self.places = places_list
 
@@ -59,17 +59,31 @@ class AadhaarDocumentInfo:
     def _extract_aadhaar_name(self) -> dict:
         result = {"Aadhaar Name": "", "Coordinates": []}
         try:
-            # Extract Aadhaar Name and its Coordinates
-            aadhaar_name = ""
-            name_text_list = []
+            name = ""
+            name_list = []
+            width = 0
+            name_coordinates = []
             coordinates = []
-            search_text_index = 0
-            skip_text_keywords = [
-                r"\b(a|ay|,|73|Ts|n 4|ZN.|ZN|em|GN|«|-|~|Gina|Gina.|Ee a ee)\b"
-            ]
-            search_text = [
-                r"\b\w*(dob)\b"
-            ]
+
+            # Skip Keywords
+            skip_keywords = [
+                r"\b(ay|ts|n 4|zn\.|zn|aaa|g|ee|em|gn|fo|of|f|gina|gina\.|“government|india)\b",
+                r"\b(ee|a|uh|ra|tametor|ea|pias|ree|net|an|aa|sre|atti|ora|zu|eve|res|yan|ric|id|by|tat)\b",
+                r"\b(address|afters|arent|2c|unique|authority|cad|compen|rte|aen|eee|wera|oftndia|cgavernment|surges|itt)\b",
+                r"\b(chique|wentication|ons|par|pos|peers|src|rerp|ane|lace|tine|reer|nee|hin|sss|authority|of|tndiag|bus|main|road|address|tx|shiny|ios|male|female|son|fir)\b",
+                r"\b([0-9]{1,2})\b",
+                r"=|<<|~|-"]
+
+            # Search keyword
+            search_keyword = [r"\b\w*(dob|doe|rryoob|bieth|binh|dor|dow|dod)\b"]
+            search_keyword_index = 0            
+            
+            # Search Date Pattern
+            dob_pattern = r'\b\d{2}/\d{2}/\d{4}|\b\d{2}/\d{5}|\b\d{2}-\d{2}-\d{4}|\b\d{4}/\d{4}|\b\d{2}/\d{2}/\d{2}|\b\d{1}/\d{2}/\d{4}|\b[Oo]?\d{1}/\d{5}|\b\d{4}\b'
+
+            # Search Gender Pattern
+            gender_pattern = r"\b(?:male|female|fmale|femalp|femere|femala|mate|femate|#femste|fomale|fertale|malo|femsle|fade|ferme|famate)\b"
+
             # Get the text data in a list
             text_data_list = [text.strip() for text in self.text_data.split("\n") if len(text) != 0]
 
@@ -78,44 +92,60 @@ class AadhaarDocumentInfo:
 
             # Reverse the filtered text data list
             reversed_filtered_text_data_list = filtered_text_data_list[::-1]
-            
             print(reversed_filtered_text_data_list)
-            
             # Loop through the reversed filtered text data list and get the index of search text
             for index,text in enumerate(reversed_filtered_text_data_list):
-                for regex in search_text:
-                    if re.search(regex, text, flags=re.IGNORECASE):
-                        search_text_index = index
+                for pattern in search_keyword:
+                    if re.search(pattern, text, flags=re.IGNORECASE):
+                        search_keyword_index = index
                         break
-            # Check if search text index is not found
-            if search_text_index == 0:
-                self.logger.error("| Search text not found in Aadhaar document")
+            
+            # Check if search keyword is found
+            if search_keyword_index == 0:
+                self.logger.warning("| Search keyword DOB not found in Aadhaar document")
+                # Loop through the reversed filtered text data list and get the index of date pattern
+                for index, text in enumerate(reversed_filtered_text_data_list):
+                    if re.search(dob_pattern, text, flags=re.IGNORECASE):
+                        search_keyword_index = index
+                        break
+                if search_keyword_index == 0:
+                    self.logger.error("| Search keyword Date pattern not found in Aadhaar document")
+                    # Loop through the reversed filtered text data list and get the index of gender pattern
+                    for index, text in enumerate(reversed_filtered_text_data_list):
+                        if re.search(gender_pattern, text, flags=re.IGNORECASE):
+                            search_keyword_index = index
+                            break
+                    if search_keyword_index == 0:
+                        self.logger.error("| Search keyword Gender pattern not found in Aadhaar document")
+                        return result
+            print(f"SEARCH INDEX: {search_keyword_index}")
+            # Loop through the reversed filtered text starting from search keyword index
+            for text in reversed_filtered_text_data_list[search_keyword_index + 1:]:
+                # Check if text is not a digit and not in skip keywords
+                if not any(re.search(pattern, text, flags=re.IGNORECASE) for pattern in skip_keywords) and len(text) > 1:
+                    name += " "+ text
+            if not name:
+                self.logger.error("| Name not found in Aadhaar document")
                 return result
-
-            # Loop through the reversed filtered text data list starting from search text index
-            for index, text in enumerate(reversed_filtered_text_data_list[search_text_index + 1 :]):
-                # Check if text contains any of the skip text keywords
-                for pattern in skip_text_keywords:
-                    if re.match(pattern, text, flags=re.IGNORECASE):
-                        continue
-                    else:
-                        aadhaar_name += " " + text
-                        # Split and check the length of text. If length is greater than 1 then add all the elements except last
-                        if len(text.split()) > 1:
-                            name_text_list.extend(text.split()[:-1])
-                        else:
-                            name_text_list.append(text)
-            
-            # Get the coordinates of name text
+            name_list = name.split()
+    
+            # Check if element of text is available in coordinates list
             for x1, y1, x2, y2, text in self.coordinates:
-                if text in name_text_list:
-                    # Check if coordinates are not available in the list
-                    if [x1, y1, x2, y2] not in coordinates:
+                if text in name_list:
+                    # Check if [x1, y1, x2, y2] is not available in name_coordinates
+                    if [x1, y1, x2, y2] not in name_coordinates:
                         coordinates.append([x1, y1, x2, y2])
+                if len(name_coordinates) == len(name_list):
+                    break
             
-            # Update the result
+            # Get the coordinates
+            for i in name_coordinates:
+                width = i[2] - i[0]
+                coordinates.append([i[0], i[1], i[0] + int(0.35 * width), i[3]])
+            
+            # Update result
             result = {
-                "Aadhaar Name": aadhaar_name,
+                "Aadhaar Name": name.strip(),
                 "Coordinates": coordinates
             }
             return result
@@ -129,12 +159,20 @@ class AadhaarDocumentInfo:
         try:
             # Extract Aadhaar DOB and its Coordinates
             dob = ""
+            dob_list = ""
             dob_coordinates = []
             coordinates = []
             width = 0
 
+            # Get the text data in a list
+            text_data_list = [text.strip() for text in self.text_data.split("\n") if len(text) != 0]
+
             # DOB Pattern: DD/MM/YYY, DD-MM-YYY
-            dob_pattern = r'\b\d{2}/\d{2}/\d{4}|\b\d{2}/\d{5}|\b\d{2}-\d{2}-\d{4}|\b\d{4}/\d{4}|\b\d{2}/\d{2}/\d{2}|\b\d{1}/\d{2}/\d{4}|\b[Oo]?\d{1}/\d{5}\b'
+            dob_pattern = r'\b\d{2}/\d{2}/\d{4}|\b\d{2}/\d{5}|\b\d{2}-\d{2}-\d{4}|\b\d{4}/\d{4}|\b\d{2}/\d{2}/\d{2}|\b\d{1}/\d{2}/\d{4}|\b[Oo]?\d{1}/\d{5}|\b\d{4}\b'
+            
+            # DOB Search keyword
+            dob_search_keyword = r"\b\w*(dob|doe|rryoob|bieth|binh|dor|dow|dod)\b"
+            dob_search_keyword_found = False
 
             # Loop through the coordinates
             for x1, y1, x2, y2, text in self.coordinates:
@@ -145,8 +183,24 @@ class AadhaarDocumentInfo:
             
             # Check if DOB is not found
             if not dob:
-                self.logger.error("| DOB not found in Aadhaar document")
-                return result
+                # Loop through the text data
+                for text in text_data_list:
+                    # Check if text matches the DOB search keyword
+                    if re.search(dob_search_keyword, text, flags=re.IGNORECASE):
+                        dob += " "+ text
+                        break
+                
+                # Split the dob
+                dob_list = dob.split()
+                # Remove '/' from dob list
+                dob_list = [x for x in dob_list if x != '/']
+
+                # Loop through the coordinates
+                for x1, y1, x2, y2, text in self.coordinates:
+                    # Check if text is in dob_list and not in coordinates
+                    if text in dob_list and [x1, y1, x2, y2] not in dob_coordinates:
+                        dob_coordinates.append([x1, y1, x2, y2])
+
             # Update the result
             for i in dob_coordinates:
                 width = i[2] - i[0]
@@ -170,7 +224,7 @@ class AadhaarDocumentInfo:
             coordinates = []
 
             gender_pattern = [
-                r"\b(?:male|female|femalp|femere|femala|mate|femate|#femste|fomale|fertale|malo|femsle|fade|ferme|famate)\b"
+                r"\b(?:male|female|fmale|femalp|femere|femala|mate|femate|#femste|fomale|fertale|malo|femsle|fade|ferme|famate)\b"
             ]
 
             # Get the text data in a list
@@ -194,16 +248,14 @@ class AadhaarDocumentInfo:
             
             # Split the gender text
             gender_list = gender.split()
+            # Remove '/' from gender list
+            gender_list = [x for x in gender_list if x != '/']
 
             # Get the coordinates
             for x1, y1, x2, y2, text in self.coordinates:
                 if text in gender_list:
-                    # Check if coordinates are not available in the list
                     if [x1, y1, x2, y2] not in coordinates:
                         coordinates.append([x1, y1, x2, y2])
-                    # Check if the length of gender_list is equal to coordinates list
-                    if len(gender_list) == len(coordinates):
-                        break
 
             # Update the result
             result = {
@@ -233,7 +285,7 @@ class AadhaarDocumentInfo:
 
             # Check if Address is not found
             if not address:
-                self.logger.error("| Address not found in Aadhaar document")
+                self.logger.warning("| Address not found in Aadhaar document")
                 return result
             
             # Update the result

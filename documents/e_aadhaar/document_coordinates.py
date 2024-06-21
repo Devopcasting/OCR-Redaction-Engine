@@ -56,97 +56,132 @@ class EAadhaarDocumentInfo:
             self.logger.error(f"| Error while extracting E-Aadhaar Number: {e}")
             return result
 
+    # Method to get the keyword index number
+    def _get_keyword_index(self, keyword: str, text_data_list: list) -> int:
+        try:
+            match_index = 0
+            # Loop through the text data list
+            for index,text in enumerate(text_data_list):
+                match_found = False
+                # Check if the keyword is in the text
+                for pattern in keyword:
+                    if re.search(pattern, text, flags=re.IGNORECASE):
+                        match_found = True
+                        break
+                if match_found:
+                    match_index = index
+                    break
+            return match_index
+        except Exception as e:
+            self.logger.error(f"| Error while getting keyword index: {e}")
+            return match_index
+        
+    # Method to get the coordinates
+    def _get_coordinates(self, name_list: list) -> list:
+        try:
+            coordinates = []
+            # Loop through the coordinates
+            for x1, y1, x2, y2, text in self.coordinates:
+                if text in name_list:
+                    coordinates.append([x1, y1, x2, y2])
+            return coordinates
+        except Exception as e:
+            self.logger.error(f"| Error while getting coordinates: {e}")
+            return coordinates
+        
     # Method to extract E-Aadhaar Name and its Coordinates
     def _extract_e_aadhaar_name(self) -> dict:
         result = {"E-Aadhaar Name": "", "Coordinates": []}
         try:
-            # Extract E-Aadhaar Name and its Coordinates
-            e_aadhaar_name = ""
             coordinates = []
-            top_keyword_regex = [
-                r"\b\w*(to)\b"
-            ]
-            top_keyword_index = 0
+            combined_coordinates = []
+            width = 0
+            
+            # Top search keyword
+            top_search_keyword = [r"\b\w*(to)\b"]
+            top_search_keyword_index = 0
+            top_name = ""
+            top_name_list = []
+            top_name_coordinates = []
 
-            bottom_keyword_regex = [
-                r"\b\w*(date|signature|dob|dos|birth|bith|year|dou|binh|008|pub|farce|binn|yoas|dou|doe)\b"
-            ]
-            bottom_keyword_index = 0
-            top_name_text_list = []
-            bottom_name_text_list = []
+            # Enrollment serach keyword
+            enrollment_search_keyword = [r"\b\w*(enrollment|enrolment|enrollment|enrolment|encolent|enroiiment|enrotment|encol ent no|enroliment|enrolment|enrotiment|/enrolment|enrotimant|enrallment|evavenrolment|eivavenrolment|ehyollment|enrollmentno)\b"]
+            enrollment_search_keyword_index = 0
+            enrollment_name = ""
+            enrollment_name_list = []
+            enrollment_name_coordinates = []
 
+            # Bottom search keyword
+            bottom_search_keyword = [r"\b\w*(date|signature|dob|dos|birth|bith|year|dou|binh|008|pub|farce|binn|yoas|dou|doe)\b"]
+            bottom_name = ""
+            bottom_name_list = []
+            bottom_name_coordinates = []
+            
             # Get the text data in a list
             text_data_list = [text.strip() for text in self.text_data.split("\n") if len(text) != 0]
-            #print(text_data_list)
-
+            
             # Filter out elements containing only digits
             filtered_text_data_list = [text for text in text_data_list if not text.isdigit()]
-            #print(filtered_text_data_list)
             
-            ## Top
-            # Loop through the filtered text data and get the index of top keyword
-            for index, text in enumerate(filtered_text_data_list):
-                for regex in top_keyword_regex:
-                    if re.search(regex, text, flags=re.IGNORECASE):
-                        top_keyword_index = index
-                        break
-            # Check if top keyword index is found
-            if top_keyword_index != 0:
-                for i in range(top_keyword_index + 1, top_keyword_index + 4):
-                    e_aadhaar_name += " " + filtered_text_data_list[i]
-                    # Split and check the length of text. If length is greater than 1 then add all the elements except last
-                    if len(filtered_text_data_list[i].split()) > 1:
-                        top_name_text_list.extend(filtered_text_data_list[i].split()[:-1])
-                    else:
-                        top_name_text_list.append(filtered_text_data_list[i])
-                # Get the coordinates of top name text
-                for x1, y1, x2, y2, text in self.coordinates:
-                    if text in top_name_text_list:
-                        # Check if coordinates are not available in the list
-                        if [x1, y1, x2, y2] not in coordinates:
-                            coordinates.append([x1, y1, x2, y2])
-
-            ## Bottom
+            ## Top Search Keyword
+            top_search_keyword_index = self._get_keyword_index(top_search_keyword, filtered_text_data_list)
+            if top_search_keyword_index != 0:
+                # Loop through filtered text data
+                for index,text in enumerate(filtered_text_data_list[top_search_keyword_index + 1 : top_search_keyword_index + 4]):
+                    top_name += " "+ text
+                # Split the enrollment_name
+                top_name_list = enrollment_name.split()
+                # Get the coordinates
+                top_name_coordinates = self._get_coordinates(top_name_list)    
+            
+            ## Enrollment Search Keyword
+            enrollment_search_keyword_index = self._get_keyword_index(enrollment_search_keyword, filtered_text_data_list)
+            if enrollment_search_keyword_index != 0:
+                # Loop through filtered text data
+                for index,text in enumerate(filtered_text_data_list[enrollment_search_keyword_index + 1 : enrollment_search_keyword_index + 4]):
+                    enrollment_name += " "+ text
+                # Split the enrollment_name
+                enrollment_name_list = enrollment_name.split()
+                # Get the coordinates
+                enrollment_name_coordinates = self._get_coordinates(enrollment_name_list)
+                
+            ## Bottom Search Keyword
             # Reverse the filtered text data list
             reversed_filtered_text_data_list = filtered_text_data_list[::-1]
-            print(reversed_filtered_text_data_list)
-            # Loop through the reversed filtered text data and get the index of bottom keyword
-            for index, text in enumerate(reversed_filtered_text_data_list):
-                for regex in bottom_keyword_regex:
-                    if re.search(regex, text, flags=re.IGNORECASE):
-                        bottom_keyword_index = index
-                        break
-            # Check if bottom keyword index is found
-            if bottom_keyword_index != 0:
-                for i in range(bottom_keyword_index + 1, bottom_keyword_index + 4):
-                    e_aadhaar_name += " " + reversed_filtered_text_data_list[i]
-                    # Split and check the length of text. If length is greater than 1 then add all the elements except last
-                    if len(reversed_filtered_text_data_list[i].split()) > 1:
-                        bottom_name_text_list.extend(reversed_filtered_text_data_list[i].split()[:-1])
-                    else:
-                        bottom_name_text_list.append(reversed_filtered_text_data_list[i])
-                # Get the coordinates of bottom name text
-                for x1, y1, x2, y2, text in self.coordinates:
-                    if text in bottom_name_text_list:
-                        # Check if coordinates are not available in the list
-                        if [x1, y1, x2, y2] not in coordinates:
-                            coordinates.append([x1, y1, x2, y2])
-            
-            # Check if Top and Bottom list is not found
-            if not top_name_text_list and not bottom_name_text_list:
-                self.logger.error("| Top and Bottom list not found in E-Aadhaar document")
+            bottom_search_keyword_index = self._get_keyword_index(bottom_search_keyword, reversed_filtered_text_data_list)
+            if bottom_search_keyword_index != 0:
+                # Loop through filtered text data
+                for index,text in enumerate(reversed_filtered_text_data_list[bottom_search_keyword_index + 1 : bottom_search_keyword_index + 4]):
+                    bottom_name += " "+ text
+                # Split the bottom_name
+                bottom_name_list = bottom_name.split()
+                # Get the coordinates
+                bottom_name_coordinates = self._get_coordinates(bottom_name_list)
+
+            # Check if top, enrollment and bottom all the coordinates are not found
+            if not top_name_coordinates and not enrollment_name_coordinates and not bottom_name_coordinates:
+                self.logger.error("| E-Aadhaar Name not found in E-Aadhaar document")
                 return result
             
+            # Combine all the coordinates
+            combined_coordinates.extend(top_name_coordinates)
+            combined_coordinates.extend(enrollment_name_coordinates)
+            combined_coordinates.extend(bottom_name_coordinates)
+
+            for i in combined_coordinates:
+                width = i[2] - i[0]
+                coordinates.append([i[0], i[1], i[0] + int(0.50 * width), i[3]])
+
             # Update the result
             result = {
-                "E-Aadhaar Name": e_aadhaar_name,
+                "E-Aadhaar Name": top_name + " " + enrollment_name + " " + bottom_name,
                 "Coordinates": coordinates
             }
-            return result
+            return result      
         except Exception as e:
             self.logger.error(f"| Error while extracting E-Aadhaar Name: {e}")
             return result
-
+    
     # Method to extract E-Aadhaar DOB and its Coordinates
     def _extract_e_aadhaar_dob(self) -> dict:
         result = {"E-Aadhaar DOB": "", "Coordinates": []}
@@ -195,7 +230,7 @@ class EAadhaarDocumentInfo:
 
             # Gender Pattern: Male, Female
             gender_pattern = [
-                r"\b\w*(male|female|femalp|femere|femala|mala|mate|femate|#femste|fomale|fertale|malo|femsle|fade|ferme|famate)\b"
+                r"\b\w*(male|female|femalp|femere|mate|femala|mala|mate|femate|#femste|fomale|fertale|malo|femsle|fade|ferme|famate)\b"
             ]
 
             # Get the text data in a list
@@ -219,9 +254,13 @@ class EAadhaarDocumentInfo:
             
             # Split the gender text
             gender_list = gender.split()
+            
+            # Remove '/' from gender_list if present
+            if '/' in gender_list:
+                gender_list.remove('/')
 
             # Get the coordinates
-            for x1, y1, x2, y2, text in self.coordinates:
+            for x1, y1, x2, y2,text in self.coordinates:
                 if text in gender_list:
                     # Check if coordinates are not available in the list
                     if [x1, y1, x2, y2] not in coordinates:
