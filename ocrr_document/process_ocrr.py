@@ -5,6 +5,8 @@ from documents.e_pancard.document_coordinates import EPancardDocumentInfo
 from documents.pancard.document_coordinates import PancardDocumentInfo
 from documents.e_aadhaar.document_coordinates import EAadhaarDocumentInfo
 from documents.aadhaar.document_coordinates import AadhaarDocumentInfo
+from documents.driving_license.document_coordinates import DrivingLicenseDocumentInfo
+from documents.passport.document_coordinates import PassportDocumentInfo
 from prepare_xml.redacted import WriteRedactedDocumentXML
 from prepare_xml.rejected import WriteRejectedDocumentXML
 from prepare_xml.rejected_doc_coordinates import GetRejectedDocumentCoordinates
@@ -23,13 +25,15 @@ class ProcessDocumentOCRR:
         self.collection_ocrr = None
         self.collection_webhooks = None
 
-        self.document_types = ["CDSL", "E-PANCARD", "PANCARD", "E-AADHAAR", "AADHAAR"]
+        self.document_types = ["CDSL", "E-PANCARD", "PANCARD", "E-AADHAAR", "PASSPORT", "AADHAAR", 'DL']
         self.document_type_ocrr_methods = {
                 "CDSL": self._cdsl_ocrr_process,
                 "E-PANCARD": self._e_pancard_ocrr_process,
                 "PANCARD": self._pancard_ocrr_process,
                 "E-AADHAAR": self._e_aadhaar_ocrr_process,
-                "AADHAAR": self._aadhaar_ocrr_process
+                "PASSPORT": self._passport_ocrr_process,
+                "AADHAAR": self._aadhaar_ocrr_process,
+                "DL": self._dl_ocrr_process
             }
 
     def _initialize_db_connection(self):
@@ -65,6 +69,7 @@ class ProcessDocumentOCRR:
                     docuemnt_process()
                     # Set the Flag
                     document_identified = True
+                    break
             
             # Check if document is un-identified
             if not document_identified:
@@ -144,6 +149,26 @@ class ProcessDocumentOCRR:
     def _aadhaar_ocrr_process(self):
         self.logger.info("| Starting OCRR Process for AADHAAR Document")
         result = AadhaarDocumentInfo(self.document_info['ocrrworkspace_doc_path'], self.logger, self.redaction_level).collect_document_info()
+        # Write XML for coordinates for REDACTED or REJECTED status
+        if result['status'] == "REDACTED":
+            self._write_xml_redacted_status(result['data'], result['message'])
+        else:
+            self._write_xml_rejected_status(result['message'])
+    
+    # OCRR Process Passport Document
+    def _passport_ocrr_process(self):
+        self.logger.info("| Starting OCRR Process for Passport Document")
+        result = PassportDocumentInfo(self.document_info['ocrrworkspace_doc_path'], self.logger, self.redaction_level).collect_document_info()
+        # Write XML for coordinates for REDACTED or REJECTED status
+        if result['status'] == "REDACTED":
+            self._write_xml_redacted_status(result['data'], result['message'])
+        else:
+            self._write_xml_rejected_status(result['message'])
+
+    # OCRR Process DL Document
+    def _dl_ocrr_process(self):
+        self.logger.info("| Starting OCRR Process for Driving License Document")
+        result = DrivingLicenseDocumentInfo(self.document_info['ocrrworkspace_doc_path'], self.logger, self.redaction_level).collect_document_info()
         # Write XML for coordinates for REDACTED or REJECTED status
         if result['status'] == "REDACTED":
             self._write_xml_redacted_status(result['data'], result['message'])
