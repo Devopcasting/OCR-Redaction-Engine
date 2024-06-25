@@ -105,21 +105,27 @@ class EAadhaarDocumentInfo:
             top_name_coordinates = []
 
             # Enrollment serach keyword
-            enrollment_search_keyword = [r"\b\w*(enrollment|enrolment|enrollment|enrolment|encolent|enroiiment|enrotment|encol ent no|enroliment|enrolment|enrotiment|/enrolment|enrotimant|enrallment|evavenrolment|eivavenrolment|ehyollment|enrollmentno)\b"]
+            enrollment_search_keyword = [r"\b(enrollment|enrolment|enrolknant|enrollment|enrolment|encolent|enroiiment|enrotment|encol ent no|enroliment|enrolment|enrotiment|/enrolment|enrotimant|enrallment|evavenrolment|eivavenrolment|ehyollment|enrollmentno)\b"]
             enrollment_search_keyword_index = 0
             enrollment_name = ""
             enrollment_name_list = []
             enrollment_name_coordinates = []
 
             # Bottom search keyword
-            bottom_search_keyword = [r"\b\w*(date|signature|dob|dos|birth|bith|year|dou|binh|008|pub|farce|binn|yoas|dou|doe)\b"]
+            bottom_search_keyword = [r"\b\w*(date|signature|dob|dos|birth|bith|year|dou|binh|003|008|pub|farce|binn|yoas|dou|doe)\b"]
             bottom_name = ""
             bottom_name_list = []
             bottom_name_coordinates = []
+
+            # Skip Keywords
+            skip_keywords = [r"\b(enrollment|enrolment|enrolknant|enrollment|enrolment|encolent|enroiiment|enrotment|encol ent no|enroliment|enrolment|enrotiment|/enrolment|enrotimant|enrallment|evavenrolment|eivavenrolment|ehyollment|enrollmentno)\b",
+                             r"\b\w*(to)\b",
+                             r"\b(india|oflndia|with|no|responsibility|Attested|True|Copy|Embassy|of|india|STUN|BAes|Aerara|Ha|MUsEN)\b"]
             
             # Get the text data in a list
             text_data_list = [text.strip() for text in self.text_data.split("\n") if len(text) != 0]
-            
+            # print(f"TEXT DATA LIST : {text_data_list}")
+
             # Filter out elements containing only digits
             filtered_text_data_list = [text for text in text_data_list if not text.isdigit()]
             
@@ -129,45 +135,67 @@ class EAadhaarDocumentInfo:
                 # Loop through filtered text data
                 for index,text in enumerate(filtered_text_data_list[top_search_keyword_index + 1 : top_search_keyword_index + 4]):
                     top_name += " "+ text
-                # Split the enrollment_name
-                top_name_list = enrollment_name.split()
+                
+                # Remove the skip keywords from top_name
+                for skip_keyword in skip_keywords:
+                    top_name = re.sub(skip_keyword, "", top_name, flags=re.IGNORECASE)
+                    top_name = top_name.strip()
+
+                # print(f"TOP NAME: {top_name}")
+                # Split the top name
+                top_name_list = top_name.split()
+                
                 # Get the coordinates
-                top_name_coordinates = self._get_coordinates(top_name_list)    
+                top_name_coordinates = self._get_coordinates(top_name_list)
+                combined_coordinates.extend(top_name_coordinates)
             
+            # print(f"TOP: {top_name_list}")
+
             ## Enrollment Search Keyword
             enrollment_search_keyword_index = self._get_keyword_index(enrollment_search_keyword, filtered_text_data_list)
-            if enrollment_search_keyword_index != 0:
+            if  enrollment_search_keyword_index != 0:
                 # Loop through filtered text data
                 for index,text in enumerate(filtered_text_data_list[enrollment_search_keyword_index + 1 : enrollment_search_keyword_index + 4]):
                     enrollment_name += " "+ text
+                
+                # Remove the skip keywords from enrollment name
+                for skip_keyword in skip_keywords:
+                    enrollment_name = re.sub(skip_keyword, "", enrollment_name, flags=re.IGNORECASE)
+                    enrollment_name = enrollment_name.strip()
+
                 # Split the enrollment_name
                 enrollment_name_list = enrollment_name.split()
+                
                 # Get the coordinates
                 enrollment_name_coordinates = self._get_coordinates(enrollment_name_list)
-                
+                combined_coordinates.extend(enrollment_name_coordinates)
+            # print(f"ENROLLMENT: {enrollment_name_list}")
             ## Bottom Search Keyword
             # Reverse the filtered text data list
             reversed_filtered_text_data_list = filtered_text_data_list[::-1]
+            print(f"REVERSED TEXT DATA LIST : {reversed_filtered_text_data_list}")
             bottom_search_keyword_index = self._get_keyword_index(bottom_search_keyword, reversed_filtered_text_data_list)
+            print(f"BOTTOM SEARCH KEYWORD INDEX: {bottom_search_keyword_index}")
             if bottom_search_keyword_index != 0:
                 # Loop through filtered text data
                 for index,text in enumerate(reversed_filtered_text_data_list[bottom_search_keyword_index + 1 : bottom_search_keyword_index + 4]):
                     bottom_name += " "+ text
+                # Remove the skip keywords from bottom name
+                for skip_keyword in skip_keywords:
+                    bottom_name = re.sub(skip_keyword, "", bottom_name, flags=re.IGNORECASE)
+                    bottom_name = bottom_name.strip()
                 # Split the bottom_name
                 bottom_name_list = bottom_name.split()
                 # Get the coordinates
                 bottom_name_coordinates = self._get_coordinates(bottom_name_list)
-
+                combined_coordinates.extend(bottom_name_coordinates)
+            print(f"BOTTOM: {bottom_name_list}")
+            # print(f"COMBINED: {combined_coordinates}")
             # Check if top, enrollment and bottom all the coordinates are not found
             if not top_name_coordinates and not enrollment_name_coordinates and not bottom_name_coordinates:
                 self.logger.error("| E-Aadhaar Name not found in E-Aadhaar document")
                 return result
             
-            # Combine all the coordinates
-            combined_coordinates.extend(top_name_coordinates)
-            combined_coordinates.extend(enrollment_name_coordinates)
-            combined_coordinates.extend(bottom_name_coordinates)
-
             for i in combined_coordinates:
                 width = i[2] - i[0]
                 coordinates.append([i[0], i[1], i[0] + int(0.50 * width), i[3]])
@@ -230,7 +258,7 @@ class EAadhaarDocumentInfo:
 
             # Gender Pattern: Male, Female
             gender_pattern = [
-                r"\b\w*(male|female|femalp|femere|mate|femala|mala|mate|femate|#femste|fomale|fertale|malo|femsle|fade|ferme|famate)\b"
+                r"\b\w*(male|female|femalp|femere|mate|femala|fenate|mala|mate|femate|#femste|fomale|fertale|malo|femsle|fade|ferme|famate)\b"
             ]
 
             # Get the text data in a list
@@ -419,6 +447,21 @@ class EAadhaarDocumentInfo:
             self.logger.error(f"| Error while extracting E-Aadhaar QRCodes: {e}")
             return result
     
+    # Method remove duplicate list of coordinates
+    def _remove_duplicate_coordinates(self, coordinates: list) -> list:
+        new_data = []
+        for item in coordinates:
+            seen = set()
+            unique_coords = []
+            for coord in item['Coordinates']:
+                coord_tuple = tuple(coord)
+                if coord_tuple not in seen:
+                    unique_coords.append(coord)
+                    seen.add(coord_tuple)
+            item['Coordinates'] = unique_coords
+            new_data.append(item)
+        return new_data
+    
     # Method to collect document information
     def collect_document_info(self) -> list:
         document_info_list = []
@@ -456,16 +499,18 @@ class EAadhaarDocumentInfo:
                 e_aadhaar_qrcodes = self._extract_e_aadhaar_qr_codes()
                 document_info_list.append(e_aadhaar_qrcodes)
 
-                print(document_info_list)
+                print(f"DOCUMENT INFO LIST: {document_info_list}")
                 # Check if all the dictionaries in the document_info_list are empty
                 is_dictionary_empty = all(all(not v for v in d.values()) for d in document_info_list)
                 if is_dictionary_empty:
                     self.logger.error("| No information found in E-Aadhaar document")
                     return {"message": "No information found in E-Aadhaar document", "status": "REJECTED"}
                 else:
+                    # Remove duplicate coordinates
+                    updated_coordinates_data = self._remove_duplicate_coordinates(document_info_list)
                     self.logger.info("| Successfully Redacted E-Aadhaar Document Information")
                     # Return the document information list
-                    return {"message": "Successfully Redacted E-Aadhaar document", "status": "REDACTED", "data": document_info_list}
+                    return {"message": "Successfully Redacted E-Aadhaar document", "status": "REDACTED", "data": updated_coordinates_data}
             else:
                 # Collect E-Aadhaar Name
                 e_aadhaar_name = self._extract_e_aadhaar_name()
@@ -523,8 +568,12 @@ class EAadhaarDocumentInfo:
                     return {"message": "No information for E-Aadhaar QR-Codes found in E-Aadhaar document", "status": "REJECTED"}
                 document_info_list.append(e_aadhaar_qrcodes)
 
+                
+                # Remove duplicate coordinates
+                updated_coordinates_data = self._remove_duplicate_coordinates(document_info_list)
+                
                 # Return the document information list
-                return {"message": "Successfully Redacted E-Aadhaar document", "status": "REDACTED", "data": document_info_list}
+                return {"message": "Successfully Redacted E-Aadhaar document", "status": "REDACTED", "data": updated_coordinates_data}
         except Exception as e:
             self.logger.error(f"| Error while collecting E-Aadhaar document information: {e}")
             return {"message": "Error in collecting E-Aadhaar Document Information", "status": "REJECTED"}

@@ -10,6 +10,7 @@ class EPancardDocumentInfo:
         self.logger = logger
         self.redaction_level = redaction_level
         self.coordinates = ImageTextCoordinates(self.ocrr_workspace_doc_path).generate_text_coordinates()
+        print(self.coordinates)
         # Tesseract configuration
         tesseract_config = r'--oem 3 --psm 11'
         self.text_data = pytesseract.image_to_string(self.ocrr_workspace_doc_path, lang="eng", config=tesseract_config)
@@ -137,17 +138,24 @@ class EPancardDocumentInfo:
             client_name_coordinates_top_side = []
             client_name_coordinates_bottom_side = []
             coordinates = None
-
+            # Name keyword search
+            name_keyword = [r"\b(name)\b"]
+            # Bottom keyword search
+            bottom_name_keyword = [r"\b(please|inform|frerarn)\b"]
+            
             # Get the text data in a list
             text_data_list = [text.strip() for text in self.text_data.split("\n") if len(text) != 0]
-            
+            print(f"TEXT DATA LIST: {text_data_list}")
             # Top
             # Loop through text data list
             for index,text in enumerate(text_data_list):
-                if 'ata / Name' in text:
-                    client_name = text_data_list[index+1]
-                    client_name_top_side_list = text_data_list[index+1].split()
-                    break
+                # Check if name keyword search matches
+                for keyword in name_keyword:
+                    if re.search(keyword, text, flags=re.IGNORECASE):
+                        client_name = text_data_list[index+1]
+                        client_name_top_side_list = text_data_list[index+1].split()
+                        break
+
             # Get the coordinates of the client name of top side
             if client_name_top_side_list:
                 if len(client_name_top_side_list) > 1:
@@ -161,11 +169,12 @@ class EPancardDocumentInfo:
             # Bottom
             # Loop through text data list
             for index,text in enumerate(text_data_list):
-                if "CBD Belapur" in text:
-                    if not client_name:
-                        client_name = text_data_list[index+1]
-                    client_name_bottom_side_list = text_data_list[index+1].split()
-                    break
+                # Check if bottom keyword search matches
+                for keyword in bottom_name_keyword:
+                    if re.search(keyword, text, flags=re.IGNORECASE):
+                        client_name_bottom_side_list = text.split()
+                        break
+
             # Get the coordinates of the client name of bottom side
             if client_name_bottom_side_list:
                 if len(client_name_bottom_side_list) > 1:
@@ -340,6 +349,7 @@ class EPancardDocumentInfo:
                 pancard_qrcodes = self._extract_qrcodes()
                 document_info_list.append(pancard_qrcodes)
 
+                print(document_info_list)
                 # Check if all the dictionaries in the document_info_list are empty
                 is_dictionary_empty = all(all(not v for v in d.values()) for d in document_info_list)
                 if is_dictionary_empty:

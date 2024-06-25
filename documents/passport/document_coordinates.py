@@ -43,7 +43,7 @@ class PassportDocumentInfo:
                     # Check if [x1, y1, x2, y2] is already appended to the list
                     if [x1, y1, x2, y2] not in passport_number_coordinates:
                         passport_number_coordinates.append([x1, y1, x2, y2])
-                elif len(text) in (6,9) and text[0].isalpha() and text[0].isupper() and all_valid_characters:
+                elif len(text) in (6,9,10) and text[0].isalpha() and text[0].isupper() and all_valid_characters:
                     passport_number += " "+text
                     # Check if [x1, y1, x2, y2] is already appended to the list
                     if [x1, y1, x2, y2] not in passport_number_coordinates:
@@ -54,6 +54,11 @@ class PassportDocumentInfo:
                     if [x1, y1, x2, y2] not in passport_number_coordinates:
                         passport_number_coordinates.append([x1, y1, x2, y2])
                 elif len(text) in (6,7,8) and text.isdigit():
+                    passport_number += " "+text
+                    # Check if [x1, y1, x2, y2] is already appended to the list
+                    if [x1, y1, x2, y2] not in passport_number_coordinates:
+                        passport_number_coordinates.append([x1, y1, x2, y2])
+                elif len(text) in (6, 7, 8) and all_valid_characters:
                     passport_number += " "+text
                     # Check if [x1, y1, x2, y2] is already appended to the list
                     if [x1, y1, x2, y2] not in passport_number_coordinates:
@@ -87,7 +92,7 @@ class PassportDocumentInfo:
             text_data_list = [text.strip() for text in self.text_data.split("\n") if len(text) != 0]
             print(f"TEXT DATA LIST: {text_data_list}")
             # Surname keyword regex
-            surname_keyword_regex = [r"\b\w*(surname|somame|sungme|semane|suname|surmame|sumama|sumame|ssurmame|weesenet|canam|sumsme|senane|surnane|sarnome)\b"]
+            surname_keyword_regex = [r"\b\w*(surname|sermnemes|somame|sungme|semane|suname|surmame|sumama|sumame|ssurmame|weesenet|canam|sumsme|senane|surnane|sarnome)\b"]
             # Surname keyword index
             surname_keyword_index = 0
             # Break loop keywords
@@ -96,7 +101,9 @@ class PassportDocumentInfo:
             # Date pattern to skip
             skip_date_pattern = [r'\d{2}/\d{2}/\d{4}|\d{2}-\d{2}-\d{4}|\d{4}/\d{4}|\d{2}/\d{2}/\d{2}|\d{1}/\d{2}/\d{4}']
             # Skip keyword regex
-            skip_keyword_regex = [r"\b(given|name|give|attonallty|walionaiity|fauna|ama|nameis|amet|rear|nat|feast|ss|a|of|pat|ast|fa|ers|iee|oe|in|ait|beat)\b"]
+            skip_keyword_regex = [r"\b(given|name|give|seen|nee|ot|attonallty|walionaiity|fauna|ama|nameis|amet|rear|nat|feast|ss|a|of|pat|ast|fa|ers|iee|oe|in|ait|beat)\b",
+                                  r"\b(cee|ae|ane|vt|ROME|UDORRETIECOM|NAly|meh|L|ae|be|ere|x||ae|ee|Sh|senmies|ae|oS|mee|gies|cuenvermeias|VA|TOG|Be|ae|ISOIA|sen| ‘wha|tens|Ge|wale|is|Cn|wei|as|ie|cssmaeall)\b",
+                                  r"(=|-|//\\|~|/|)"]
             # Redaction width
             width = 0
 
@@ -115,7 +122,6 @@ class PassportDocumentInfo:
             # Lambada function
             contains_no_numbers = lambda text: not bool(re.search(r'\d', text))            
             for index,text in enumerate(text_data_list[surname_keyword_index + 1:]):
-                print(f"TEXT:START: {text}")
                 # Check if the text matches the break loop keyword
                 for pattern in break_loop_keyword_regex:
                     if re.search(pattern, text, flags=re.IGNORECASE):
@@ -135,6 +141,7 @@ class PassportDocumentInfo:
                 
                 # Check if the text does'nt match the skip keyword
                 if not any(re.search(pattern, text, flags=re.IGNORECASE) for pattern in skip_keyword_regex) and contains_no_numbers(text):
+                    print(text)
                     passport_names += " "+text
 
             # Split the passport names
@@ -268,7 +275,22 @@ class PassportDocumentInfo:
         except Exception as e:
             self.logger.error(f"| Error while extracting Less than Symbol: {e}")
             return result
-        
+    
+    # Method remove duplicate list of coordinates
+    def _remove_duplicate_coordinates(self, coordinates: list) -> list:
+        new_data = []
+        for item in coordinates:
+            seen = set()
+            unique_coords = []
+            for coord in item['Coordinates']:
+                coord_tuple = tuple(coord)
+                if coord_tuple not in seen:
+                    unique_coords.append(coord)
+                    seen.add(coord_tuple)
+            item['Coordinates'] = unique_coords
+            new_data.append(item)
+        return new_data
+    
     # Method to collect document information
     def collect_document_info(self) -> list:
         document_info_list = []
@@ -302,9 +324,11 @@ class PassportDocumentInfo:
                     self.logger.error("| No information found in Passport document")
                     return {"message": "No information found in Passport document", "status": "REJECTED"}
                 else:
+                    # Remove duplicate coordinates
+                    updated_coordinates_data = self._remove_duplicate_coordinates(document_info_list)
                     self.logger.info("| Successfully Redacted Passport Document Information")
                     # Return the document information list
-                    return {"message": "Successfully Redacted Passport document", "status": "REDACTED", "data": document_info_list}
+                    return {"message": "Successfully Redacted Passport document", "status": "REDACTED", "data": updated_coordinates_data}
             else:
                 # Collect Passport Number
                 passport_number = self._extract_passport_number()
@@ -341,8 +365,11 @@ class PassportDocumentInfo:
                 else:
                     document_info_list.append(passport_address)
 
+                # Remove duplicate coordinates
+                updated_coordinates_data = self._remove_duplicate_coordinates(document_info_list)
+                
                 # Return the document information list
-                return {"message": "Successfully Redacted Passport document", "status": "REDACTED", "data": document_info_list}
+                return {"message": "Successfully Redacted Passport document", "status": "REDACTED", "data": updated_coordinates_data}
         except Exception as e:
             self.logger.error(f"| Error while collecting Passport document information: {e}")
             return {"message": "Error in collecting Passport Document Information", "status": "REJECTED"}

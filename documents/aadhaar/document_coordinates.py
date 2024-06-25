@@ -15,7 +15,7 @@ class AadhaarDocumentInfo:
         # Tesseract configuration
         tesseract_config = r'--oem 3 --psm 11'
         self.text_data = pytesseract.image_to_string(self.ocrr_workspace_doc_path, lang="eng", config=tesseract_config)
-        #print(self.coordinates)
+        print(self.coordinates)
         # List of Places
         self.places = places_list
 
@@ -67,22 +67,23 @@ class AadhaarDocumentInfo:
 
             # Skip Keywords
             skip_keywords = [
-                r"\b(ay|ts|n 4|zn\.|zn|aaa|g|ee|em|gn|fo|of|f|gina|gina\.|“government|india)\b",
-                r"\b(ee|a|uh|ra|tametor|ea|pias|ree|net|an|aa|sre|atti|ora|zu|eve|res|yan|ric|id|by|tat)\b",
+                r"\b(ay|ts|n 4|zn\.|zn|aaa|g|ee|e|em|gn|fo|of|f|gina|gina\.|“government|india|ndia|GVERNME)\b",
+                r"\b(a|uh|ra|tametor|ea|esi|pias|ree|net|an|aa|sre|atti|ora|zu|eve|res|yan|ric|id|by|tat)\b",
                 r"\b(address|afters|arent|2c|unique|authority|cad|compen|rte|aen|eee|wera|oftndia|cgavernment|surges|itt)\b",
-                r"\b(chique|wentication|ons|par|pos|peers|src|rerp|ane|lace|tine|reer|nee|hin|sss|authority|of|tndiag|bus|main|road|address|tx|shiny|ios|male|female|son|fir)\b",
+                r"\b(chique|wentication|ons|par|fst|VERNMENRORIND|peat|emer|ange|PUENTE|tN|ao|paint|pos|gov|uldal|peers|src|rerp|ane|lace|tine|reer|nee|hin|sss|authority|of|tndiag|bus|main|gs|Deere|mies|seas|road|address|tx|shiny|ios|male|female|son|fir)\b",
                 r"\b([0-9]{1,2})\b",
                 r"=|<<|~|-"]
 
             # Search keyword
-            search_keyword = [r"\b\w*(dob|doe|rryoob|bieth|binh|dor|dow|dod)\b"]
+            search_keyword = [r"\b\w*(dob|doe|dow|rryoob|oob|D08B|birth|bieth|binh|dor|dow|dod)\b"]
             search_keyword_index = 0            
             
             # Search Date Pattern
             dob_pattern = r'\b\d{2}/\d{2}/\d{4}|\b\d{2}/\d{5}|\b\d{2}-\d{2}-\d{4}|\b\d{4}/\d{4}|\b\d{2}/\d{2}/\d{2}|\b\d{1}/\d{2}/\d{4}|\b[Oo]?\d{1}/\d{5}|\b\d{4}\b'
+            pattern = r'\b(?P<mm_dd_yyyy>\d{2}/\d{2}/\d{4})|(?P<mm_dd_yy>\d{2}/\d{2}/\d{2})|(?P<mm_dd_yyyy_dash>\d{2}-\d{2}-\d{4})|(?P<m_dd_yyyy>\d{1}/\d{2}/\d{4})|(?P<yyyy>\d{4})|(?P<mm_yyyy>\d{2}/\d{4})|(?P<mm_dd_yyyyy>\d{2}/\d{5})|(?P<yyyy_mm>\d{4}/\d{4})|(?P<o_mm_dddd>[Oo]?\d{1}/\d{5})\b'
 
             # Search Gender Pattern
-            gender_pattern = r"\b(?:male|female|fmale|femalp|femere|femala|mate|femate|#femste|fomale|fertale|malo|femsle|fade|ferme|famate)\b"
+            gender_pattern = r"\b(male|female|fmale|femalp|femali|femere|femala|mate|femate|#femste|fomale|fertale|malo|femsle|fade|ferme|famate)\b"
 
             # Get the text data in a list
             text_data_list = [text.strip() for text in self.text_data.split("\n") if len(text) != 0]
@@ -92,7 +93,9 @@ class AadhaarDocumentInfo:
 
             # Reverse the filtered text data list
             reversed_filtered_text_data_list = filtered_text_data_list[::-1]
-            print(reversed_filtered_text_data_list)
+            
+            print(f"REVERSED LIST: {reversed_filtered_text_data_list}")
+
             # Loop through the reversed filtered text data list and get the index of search text
             for index,text in enumerate(reversed_filtered_text_data_list):
                 for pattern in search_keyword:
@@ -103,18 +106,11 @@ class AadhaarDocumentInfo:
             # Check if search keyword is found
             if search_keyword_index == 0:
                 self.logger.warning("| Search keyword DOB not found in Aadhaar document")
-                # Loop through the reversed filtered text data list and get the index of date pattern
+                # Loop through the reversed filtered text data list and get the index of gender pattern
                 for index, text in enumerate(reversed_filtered_text_data_list):
-                    if re.search(dob_pattern, text, flags=re.IGNORECASE):
+                    if re.search(gender_pattern, text, flags=re.IGNORECASE):
                         search_keyword_index = index
                         break
-                if search_keyword_index == 0:
-                    self.logger.error("| Search keyword Date pattern not found in Aadhaar document")
-                    # Loop through the reversed filtered text data list and get the index of gender pattern
-                    for index, text in enumerate(reversed_filtered_text_data_list):
-                        if re.search(gender_pattern, text, flags=re.IGNORECASE):
-                            search_keyword_index = index
-                            break
                     if search_keyword_index == 0:
                         self.logger.error("| Search keyword Gender pattern not found in Aadhaar document")
                         return result
@@ -141,7 +137,7 @@ class AadhaarDocumentInfo:
             # Get the coordinates
             for i in name_coordinates:
                 width = i[2] - i[0]
-                coordinates.append([i[0], i[1], i[0] + int(0.35 * width), i[3]])
+                coordinates.append([i[0], i[1], i[0] + int(0.20 * width), i[3]])
             
             # Update result
             result = {
@@ -224,7 +220,7 @@ class AadhaarDocumentInfo:
             coordinates = []
 
             gender_pattern = [
-                r"\b(?:male|female|fmale|femalp|femere|femala|mate|femate|#femste|fomale|fertale|malo|femsle|fade|ferme|famate)\b"
+                r"\b(?:male|female|fmale|femalp|femere|FEMALI|femala|mate|femate|#femste|fomale|fertale|malo|femsle|fade|ferme|famate)\b"
             ]
 
             # Get the text data in a list
@@ -333,6 +329,41 @@ class AadhaarDocumentInfo:
             self.logger.error(f"| Error while extracting Aadhaar Pincode: {e}")
             return result
     
+    # Method to extract Aadhaar Mobile number and its Coordinates
+    def _extract_aadhaar_mobile(self) -> dict:
+        result = {"Aadhaar Mobile": "", "Coordinates": []}
+        try:
+            mobile = ""
+            mobile_coordinates = []
+            coordinates = []
+            width = 0
+
+            # Loop through the coordinates
+            for x1, y1, x2, y2, text in self.coordinates:
+                # Check if text length is 10 or 11
+                if len(text) in (10,11) and text[:10].isdigit():
+                    mobile = text
+                    mobile_coordinates.append([x1, y1, x2, y2])
+                
+            # Check if Mobile is not found
+            if not mobile:
+                self.logger.warning("| Mobile number not found in Aadhaar document")
+                return result
+            
+            # Update result
+            for i in mobile_coordinates:
+                width = i[2] - i[0]
+                coordinates.append([i[0], i[1], i[0] + int(0.54 * width), i[3]])
+
+            result = {
+                "Aadhaar Mobile": mobile,
+                "Coordinates": coordinates
+            }
+            return result
+        except Exception as e:
+            self.logger.error(f"| Error while extracting Aadhaar Mobile: {e}")
+            return result
+    
     # Method to extract Aadhaar QR-Codes and its Coordinates
     def _extract_aadhaar_qr_codes(self) -> list:
         result = {"Aadhaar QRCodes": "", "Coordinates": []}
@@ -399,6 +430,10 @@ class AadhaarDocumentInfo:
                 aadhaar_pincode = self._extract_aadhaar_pincode()
                 document_info_list.append(aadhaar_pincode)
 
+                # Collect Aadhaar Mobile
+                aadhaar_mobile = self._extract_aadhaar_mobile()
+                document_info_list.append(aadhaar_mobile)
+
                 # Collect Aadhaar QR-Codes
                 aadhaar_qrcodes = self._extract_aadhaar_qr_codes()
                 document_info_list.append(aadhaar_qrcodes)
@@ -456,6 +491,13 @@ class AadhaarDocumentInfo:
                     self.logger.error("| No information for Aadhaar Pincode found in Aadhaar document")
                 else:
                     document_info_list.append(aadhaar_pincode)
+
+                # Collect Aadhaar Mobile
+                aadhaar_mobile = self._extract_aadhaar_mobile()
+                if len(aadhaar_mobile['Coordinates']) == 0:
+                    self.logger.error("| No information for Aadhaar Mobile found in Aadhaar document")
+                else:
+                    document_info_list.append(aadhaar_mobile)
 
                 # Collect Aadhaar QR-Codes
                 aadhaar_qrcodes = self._extract_aadhaar_qr_codes()
