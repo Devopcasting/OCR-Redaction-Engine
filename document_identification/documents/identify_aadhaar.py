@@ -11,7 +11,7 @@ class IdentifyAadhaarDocument:
 
         # Target strings to match
         self.targets = [
-            r"\b(uidal.gov.in|male|female|mame|femala|femate|eemale|government of india|UniqualidentificationsAuthority|MERA AADHAAR  MERI PEHGHAN|Unique identification Authority oF india|wwwuldal.cowin|Aadhaar-Aam Admi ka Adhikar|autiority of india|authority-of|www.uldal.gov.in)\b"
+            r"\b(uidal.gov.in|male|female|mame|FEMALI|femala|femate|eemale|government of india|UniqualidentificationsAuthority|MERA AADHAAR  MERI PEHGHAN|Unique identification Authority oF india|wwwuldal.cowin|Aadhaar-Aam Admi ka Adhikar|autiority of india|authority-of|www.uldal.gov.in)\b"
         ]
     
     def check_aadhaar_document_match(self) -> bool:

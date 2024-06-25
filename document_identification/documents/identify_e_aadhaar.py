@@ -4,14 +4,14 @@ class IdentifyEAadhaarDocument:
     def __init__(self, text_list: list, logger: object) -> None:
         # List of text blocks
         self.text_list = text_list
-        print(self.text_list)
+        #print(self.text_list)
 
         # Logger object
         self.logger = logger
 
         # Target strings to match
         self.targets = [
-            r"\b\w*(enrollment|enrolment|ehrolimanttle|encolent|enroiiment|enrotment|encol ent no|enroliment|enrolment|enrotiment|/enrolment|enrotimant|enrallment|evavenrolment|eivavenrolment|ehyollment|enrollmentno)\b",
+            r"\b\w*(enrollment|enrolment|ehrolimanttle|encolent|enroiiment|enrotment|encol ent no|enroliment|enrolment|enrotiment|/enrolment|enrotimant|enrallment|evavenrolment|eivavenrolment|Enrolknant|ehyollment|enrollmentno)\b",
             r"\b\w*(This ts electronica ly generated letter|Aadhaar is valid throughout the country|Aadhaar is a proof of identity  not  OF citizenship|This is electronically  generated|This is elactronically generated lettar)\b"
         ]
     
